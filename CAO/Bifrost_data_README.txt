@@ -16,9 +16,18 @@ bash
 Copy
 Edit
 pip install pandas mysql-connector-python requests
+
 MySQL 数据库：
 
-确保 MySQL 数据库已经设置好。
+确保 MySQL 数据库已经设置好 (临时用户名密码，可以更换，只需要更新一下程序，或者从env中导入)。
+# CREATE USER 'queryweb3'@'localhost' IDENTIFIED BY '!SDCsdin2df2@';
+# CREATE DATABASE QUERYWEB3;
+# GRANT ALL PRIVILEGES ON QUERYWEB3.* TO 'queryweb3'@'localhost';
+# FLUSH PRIVILEGES;
+# user name: queryweb3
+# pass:      !SDCsdin2df2@
+# database:  QUERYWEB3
+
 使用提供的表创建语句创建 Bifrost_site_table 和 Bifrost_staking_table。
 
 
