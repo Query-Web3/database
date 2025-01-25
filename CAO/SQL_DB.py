@@ -144,6 +144,19 @@ class SQL_DB:
             # create Bifrost staking table
             self.executeSQL(sql_command)
 
+
+            # create Bifrost batch ID table 
+            sql_command = """CREATE TABLE IF NOT EXISTS Bifrost_batchID_table (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            batch_id INT NOT NULL,
+            chain VARCHAR(25),
+            status VARCHAR(10),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+            # create Bifrost staking table
+            self.executeSQL(sql_command)
+
     def errorMessage(self,message):
         print("error message:" + message)
 
@@ -184,11 +197,13 @@ class SQL_DB:
         Parameters:
         - df1: The first dataframe containing columns related to general assets.
         - df2: The second dataframe containing specific asset data.
+        - df3: The bifrost batch ID table
         - batch_id: A unique ID for this batch of data insertion.
         """
         # Define the table names
         table1 = "Bifrost_site_table"
         table2 = "Bifrost_staking_table"
+        table3 = "Bifrost_batchID_table"
         
         # Insert records from df1 into Bifrost_site_table table
         for _, row in df1.iterrows():
@@ -241,6 +256,15 @@ class SQL_DB:
 
             # Execute the query
             self.executeSQL(query2)
+        
+        # insert into df3 for the batch ID
+        query3 = "INSERT INTO " + table3 + " (batch_id, chain, " + 'status' + ") " + \
+                    "VALUES (\"" + str(batch_id) + "\", \"Bifrost\",\"F\""  + ")"
+        
+        #print(query3)
+        
+        self.executeSQL(query3)
+
 
         
         print(f"Records successfully updated for batch_id {batch_id}.")
