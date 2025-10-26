@@ -32,7 +32,7 @@ def load_assets():
 
 # Fetch batch prices for assets 0 to 30
 def fetch_batch_prices():
-    script_path = "sdk/packages/sdk/test/script/examples/getBatchPrice.ts"
+    script_path = "sdk/packages/sdk/test/script/examples/getBatchPrice2.ts"
     try:
         result = subprocess.run(
             ["npx", "tsx", script_path],
@@ -40,7 +40,19 @@ def fetch_batch_prices():
             text=True,
             check=True
         )
-        data = json.loads(result.stdout)
+        # check before we process the output 
+        stdout = (result.stdout or "").strip()
+        stderr = (result.stderr or "").strip()
+        if not stdout:
+            print("Error: getBatchPrice.ts produced no stdout.")
+            return {}
+        else:
+            print("now let me price the output first")
+            print(stdout)        
+            print("over")
+        print("after running npx tsx fetch price ...")
+        data = json.loads(stdout)
+        print("load the json correctly?")
         if 'error' in data:
             print(f"Error fetching batch prices: {data['error']}")
             return {}

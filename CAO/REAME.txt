@@ -1,4 +1,62 @@
 All resources update
 
+npm i p-limit    # install library
+
+# not used: backup option for hydration: use DUNE
+# pip install dune-client
+
+
+Updates on Hydration, the APR works now! make sure you run: 
+npm install @galacticcouncil/sdk
+
+get the sdk and the new script: 
+sdk/packages/sdk/test/script/examples/getTop35Apr3.ts
+
+#npm run build          # this step is important  
+#npx tsx ./test/script/examples/getApr.ts
+#npm install csv-writer
+
+#first we need to get all ID and symbol:
+npx tsx sdk/packages/sdk/test/script/examples/getRegistryAssets.ts     # make sure you used my updated ts, not the original one so that we will save the ID and symbol as allAssets.csv 
+ 
+# now we can run the python script to get and store all
+
+
+# get all prices on Hydration
+python fetch_asset_prices.py
+
+
+
+and then the new version would work: 
+
+
+Stellaswap, this might be helpful: https://thegraph.com/explorer/subgraphs/LgiKJnsTspbsPBLqDPqULPtnAdSZP6LfPCSo3GWuJ5a?view=Query&chain=arbitrum-one  
+but still need the apy information
+
 1/7/2025 Already reach out Bifrost, Acala, Moonbeam, Hydration. Waiting for Acala moonbeam feedback, hydration I try to find it by myself
+
+https://github.com/galacticcouncil/hydration-ui/blob/master/src/api/stats.ts
+https://api.hydradx.io/hydradx-ui/v2/stats/fees/5
+https://api.hydradx.io/hydradx-ui/v1/stats/charts/volume/5
+https://api.hydradx.io/hydradx-ui/v2/stats/fees/0
+
+https://github.com/galacticcouncil/sdk/blob/master/packages/sdk/test/script/examples/getApr.ts
+
+the SDK might be useful: https://github.com/galacticcouncil/sdk 
+Example: npm install @galacticcouncil/sdk @galacticcouncil/api-augment 
+npx tsx ./sdk/packages/sdk/test/script/examples/getApr.ts
+npx tsx ./sdk/packages/sdk/test/script/examples/getRegistryAssets.ts
+
+all trading:  https://github.com/galacticcouncil/snakewatch/tree/main/src
+
+
+Bifrost:
+https://docs.bifrost.io/for-builders/vtoken-apis
+https://bifrost-io.notion.site/vToken-APIs-445f399cedc84c56a6c1276f93f37313#153bc3b88a84806a98cfce5a563aebeb
+The TVL can be found on the frontend api: https://dapi.bifrost.io/api/site 
+and https://dapi.bifrost.io/api/staking 
+
+some useful resource: https://github.com/paritytech/dotlake-community 
+
+
 

@@ -39,7 +39,7 @@ def load_assets():
 
 # 2. Run TypeScript script to update farm_apr.json and load the result
 def fetch_farm_apr():
-    script_path = "sdk/packages/sdk/test/script/examples/getTop35Apr.ts"
+    script_path = "sdk/packages/sdk/test/script/examples/getTop35Apr3.ts"
     output_file = "./farm_apr.json"
     
     try:
@@ -70,7 +70,8 @@ def fetch_farm_apr():
 
 # 3. Fetch pool APR from API
 def fetch_pool_apr(asset_id):
-    url = f"https://api.hydradx.io/hydradx-ui/v2/stats/fees/{asset_id}"
+    #url = f"https://api.hydradx.io/hydradx-ui/v2/stats/fees/{asset_id}"
+    url = f"https://hydradx-api-app-2u5klwxkrq-ey.a.run.app/hydradx-ui/v1/stats/fees/{asset_id}?timeframe=1mon"
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -91,7 +92,7 @@ def calculate_total_apr(farm_apr, pool_apr):
 
 # 5. Fetch TVL from API
 def fetch_tvl(asset_id):
-    url = f"https://api.hydradx.io/hydradx-ui/v2/stats/tvl/{asset_id}"
+    url = f"https://hydradx-api-app-2u5klwxkrq-ey.a.run.app/hydradx-ui/v1/stats/tvl/{asset_id}"
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -108,7 +109,7 @@ def fetch_tvl(asset_id):
 
 # 6. Fetch latest volume from API
 def fetch_latest_volume(asset_id):
-    url = f"https://api.hydradx.io/hydradx-ui/v1/stats/charts/volume/{asset_id}"
+    url = f"https://hydradx-api-app-2u5klwxkrq-ey.a.run.app/hydradx-ui/v1/stats/charts/volume/{asset_id}"
     try:
         response = requests.get(url)
         if response.status_code == 200:
