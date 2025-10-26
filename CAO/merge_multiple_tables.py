@@ -14,12 +14,14 @@ def main():
     db_user = os.getenv("DB_USERNAME")
     db_password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME")
+    db_port = os.getenv("DB_PORT",3306)
     init_tables = "1"
 
     db = SQL_DB_MergeTables(
         userName=db_user,
         passWord=db_password,
         dataBase=db_name,
+        port=db_port,
         initializeTable=init_tables
     )
     db.run_merge()

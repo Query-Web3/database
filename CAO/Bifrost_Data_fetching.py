@@ -73,8 +73,16 @@ def fetch_data2():
         print(f"Failed to fetch data. Status code: {response.status_code}")    
 
 def main():
+    # Load environment variables from .env file (if present)
+    load_dotenv()
 
-    sqlDB = SQL_DB(userName = 'queryweb3', passWord = '!SDCsdin2df2@', dataBase = 'QUERYWEB3', initializeTable=True)  # connect to the database
+    db_user = os.getenv("DB_USERNAME")
+    db_password = os.getenv("DB_PASSWORD")
+    db_name = os.getenv("DB_NAME")
+    db_port = os.getenv("DB_PORT",3306)
+    init_tables = "1"
+    
+    sqlDB = SQL_DB(userName = db_user, passWord = db_password, dataBase = db_name, port = db_port, initializeTable=True)  # connect to the database
 
     while True:
         print("\nFetching data...")

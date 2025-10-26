@@ -32,7 +32,7 @@ import math
 
 
 class SQL_DB:
-    def __init__(self, db_config = None, userName = None, passWord = None, dataBase = None, initializeTable = False):
+    def __init__(self, db_config = None, userName = None, passWord = None, port = 3306, dataBase = None, initializeTable = False):
         '''
         Upon initialization, the DB_init class will connect to database
         You need to either set up db_config or userName and passWord
@@ -59,6 +59,7 @@ class SQL_DB:
                 self.userName = userName
                 self.passWord = passWord
                 self.dataBase = dataBase
+                self.port = port
 
         if initializeTable == True:
             #print("Warning, will drop the tables now")  we don't want to drop the table
@@ -163,7 +164,14 @@ class SQL_DB:
 
     def executeSQL(self, query,params=None):
         try:
-            self.cnx = mysql.connector.connect(user=self.userName, password=self.passWord, host='127.0.0.1', database=self.dataBase)
+            self.cnx = mysql.connector.connect(
+                user=self.userName, 
+                password=self.passWord, 
+                host='127.0.0.1',
+                database=self.dataBase,
+                port=self.port,
+                ssl_disabled=True
+            )
             cursor = self.cnx.cursor()
             if params == None:
                 cursor.execute(query)
