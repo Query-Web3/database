@@ -20,11 +20,11 @@ class SQL_DB_MergeTables:
         db.run_merge()
     """
 
-    def __init__(self, userName, passWord, dataBase, db_port=3306, initializeTable=False):
+    def __init__(self, userName, passWord, dataBase, port=3306, initializeTable=False):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase
-        self.port = db_port
+        self.port = port
         if initializeTable:
             self.initialize_tables()
 
@@ -409,6 +409,8 @@ class SQL_DB_MergeTables:
         dt_h = _dt(created_at_hydration)
         dt_hp = _dt(created_at_hydration_price)
         combined_dt = max([d for d in [dt_b, dt_m, dt_h, dt_hp] if d is not None], default=None)
+
+        print(bifrost_records)
 
         payload_obj = {
             # Bifrost

@@ -1,6 +1,8 @@
 import requests
 import pandas as pd
 import time
+import os
+from dotenv import load_dotenv
 
 from SQL_DB import SQL_DB
 
