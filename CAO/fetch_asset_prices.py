@@ -11,6 +11,7 @@ load_dotenv()
 db_user = os.getenv("DB_USERNAME")
 db_password = os.getenv("DB_PASSWORD")
 db_name = os.getenv("DB_NAME")
+db_port = os.getenv("DB_PORT",3306)
 
 # Validate environment variables
 required_env_vars = {"DB_USERNAME": db_user, "DB_PASSWORD": db_password, "DB_NAME": db_name}
@@ -92,7 +93,9 @@ def main():
         userName=db_user,
         passWord=db_password,
         dataBase=db_name,
-        initializeTable=True
+        initializeTable=True,
+        db_port=db_port,
+        ssl_disabled=True
     )
     
     try:

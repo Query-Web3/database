@@ -28,21 +28,52 @@ class SQL_DB_MergeTables:
         if initializeTable:
             self.initialize_tables()
 
+
+    {'Asset': 'vKSM', 'tvl': 1635704.92378, 'apy': 15.51, 'apyBase': 12.25, 'apyReward': 3.26, 'price': 17.075545}
+
     # ---------- Schema (append-only) ----------
     def initialize_tables(self):
         """
-        multipleFACT(
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          payload JSON NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        multiple_yields(
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            batch_id INT NOT NULL,
+            token_symbol VARCHAR(50),
+            chain VARCHAR(50),
+            tvl DOUBLE,
+            yield JSON,
+            price DOUBLE,
+            vols_24 DOUBLE,
+            txns_24 DOUBLE,
+            asset_type TINYINT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
+
+        yield json => {
+            apy:{
+                value: 15.51,
+                params: [
+                    {"base":5},
+                    {"reward":5},
+                ]
+            }
+            apr:{}
+        }
         """
         create_sql = """
-        CREATE TABLE IF NOT EXISTS multipleFACT (
+        CREATE TABLE IF NOT EXISTS multiple_yields (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            payload JSON NOT NULL,
+            batch_id INT NOT NULL,
+            token_symbol VARCHAR(50),
+            chain VARCHAR(50),
+            tvl DOUBLE,
+            yield JSON,
+            price DOUBLE,
+            vols_24 DOUBLE,
+            txns_24 DOUBLE,
+            asset_type TINYINT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
         """
         self.executeSQL(create_sql)
         self._maybe_migrate_legacy_schema()
@@ -237,7 +268,8 @@ class SQL_DB_MergeTables:
       s.apy,
       s.apyBase,
       s.apyReward,
-      st.price
+      st.price,
+      s.batch_id
     FROM Bifrost_site_table AS s
     JOIN (
       SELECT s2.batch_id
@@ -374,6 +406,8 @@ class SQL_DB_MergeTables:
         df_h_price    = self.fetch_df(self.Q_HYDRATION_PRICE_DATA)
         df_bxhy       = self.fetch_df(self.Q_BIFROST_HYDRATION_COMBINED)
 
+        print(df_bifrost)
+
         # Sanitize → lists of dicts
         bifrost_records    = self._df_to_json_array(df_bifrost)
         moonbeam_records   = self._df_to_json_array(df_pools)
@@ -410,37 +444,77 @@ class SQL_DB_MergeTables:
         dt_hp = _dt(created_at_hydration_price)
         combined_dt = max([d for d in [dt_b, dt_m, dt_h, dt_hp] if d is not None], default=None)
 
-        payload_obj = {
-            # Bifrost
-            "batch_id_bifrost": batch_id_bifrost,
-            "created_at_bifrost": created_at_bifrost.isoformat() if isinstance(created_at_bifrost, datetime.datetime) else created_at_bifrost,
-            "bifrost_data": bifrost_records,
 
-            # Moonbeam / pools
-            "batch_id_moonbeam": batch_id_moonbeam,
-            "created_at_moonbeam": created_at_moonbeam.isoformat() if isinstance(created_at_moonbeam, datetime.datetime) else created_at_moonbeam,
-            "moonbeam_data": moonbeam_records,
+        if len(bifrost_records)>0:
+            rows = []
+            for r in bifrost_records:
+                if r.get("tvl") is None:
+                    continue
+                yield_json = {
+                    "apy":{
+                        "value": r.get("tvl"),
+                        "params": []
+                    },
+                }
+                yield_str = json.dumps(yield_json, default=self._json_default, ensure_ascii=False, allow_nan=False)
+                row = [
+                    r.get("batch_id"),
+                    r.get("Asset"),
+                    "Bifrost",
+                    r.get("tvl"),
+                    yield_str,
+                    r.get("price"),
+                    None,
+                    None,
+                    0
+                ]
+                rows.append(row)
 
-            # Hydration data
-            "batch_id_hydration": batch_id_hydration,
-            "created_at_hydration": created_at_hydration.isoformat() if isinstance(created_at_hydration, datetime.datetime) else created_at_hydration,
-            "hydration_data": hydration_records,
+            self.instert_rows(
+                "multiple_yields",
+                [
+                    "batch_id",
+                    "token_symbol",
+                    "chain",
+                    "tvl",
+                    "yield",
+                    "price",
+                    "vols_24",
+                    "txns_24",
+                    "asset_type",
+                ],
+                rows,
+            )
 
-            # Hydration price
-            "batch_id_hydration_price": batch_id_hydration_price,
-            "created_at_hydration_price": created_at_hydration_price.isoformat() if isinstance(created_at_hydration_price, datetime.datetime) else created_at_hydration_price,
-            "hydration_price_data": hydration_price_records,
 
-            # Combined Bifrost × Hydration
-            "bifrost_hydration_data": bxhy_records,
-
-            # Combined timestamp helper
-            "combined_created_at": combined_dt.isoformat() if combined_dt else None
-        }
-
-        payload_obj = self._deep_clean(payload_obj)
-        self.insert_combined_payload(payload_obj)
         print("✅ Inserted new combined snapshot into multipleFACT (append-only).")
+
+    def instert_rows(self, table, keys, values):
+        # Insert records from df1 into Bifrost_site_table table
+        for row in values:
+            # Safely format the values as a comma-separated string
+            values_list = []
+            for value in row:
+                if isinstance(value, list):  # Convert lists to JSON strings
+                    values_list.append("'" + json.dumps(value).replace("'", "\\'") + "'")
+                elif pd.isna(value) or value is None:  # Handle missing values
+                    values_list.append("NULL")
+                elif isinstance(value, str):  # Escape single quotes in strings
+                    values_list.append("'" + value.replace("'", "\\'") + "'")
+                else:  # Convert other types to strings
+                    values_list.append(str(value))
+            
+            print(values_list)
+
+            # Construct the SQL query using regular string concatenation
+            query = "INSERT INTO " + table + " (" + ', '.join(keys) + ") " + \
+                    "VALUES (" + ', '.join(values_list) + ")"
+            
+            print(query)
+            
+            # Execute the query directly
+            self.executeSQL(query)
+
 
 
 if __name__ == "__main__":

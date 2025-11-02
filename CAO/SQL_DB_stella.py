@@ -5,10 +5,11 @@ import logging
 import pandas as pd
 
 class SQL_DB_Stella:
-    def __init__(self, userName, passWord, dataBase, initializeTable=False):
+    def __init__(self, userName, passWord, dataBase, db_port=3306, initializeTable=False):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase
+        self.port = db_port
 
         if initializeTable:
             self.initialize_tables()
@@ -58,7 +59,9 @@ class SQL_DB_Stella:
                 user=self.userName,
                 password=self.passWord,
                 host='127.0.0.1',
-                database=self.dataBase
+                database=self.dataBase,
+                port=self.port,
+                ssl_disabled=True
             )
             cursor = cnx.cursor()
             if params is None:
