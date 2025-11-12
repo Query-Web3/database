@@ -1,4 +1,3 @@
-\
 #!/usr/bin/env python3
 # SQL_DB_combinedTables.py
 """
@@ -7,7 +6,7 @@ into a unified append-only table: full_table.
 
 Adds columns:
   - `chain`  : 'hydration' | 'moonbeam' | 'bifrost'
-  - `price`  : matched from latest Hydration_price (by symbol), else NULL
+  - `price`  : matched from latest Hydration_price (by symbol), else from latest per-symbol Bifrost_staking_table, else NULL
 
 Environment (.env) variables:
   DB_USERNAME, DB_PASSWORD, DB_HOST (default 127.0.0.1), DB_NAME
@@ -25,20 +24,24 @@ import mysql.connector
 from mysql.connector import Error as MySQLError
 from dotenv import load_dotenv
 
-
 Decimal = decimal.Decimal
 
 
 def _to_decimal(v: Any) -> Optional[Decimal]:
+    """Safe conversion to Decimal; returns None for '', 'nan', etc."""
     if v is None:
         return None
     try:
         if isinstance(v, Decimal):
             return v
-        if isinstance(v, (int, float, str)):
-            s = str(v).strip()
+        if isinstance(v, (int, float)):
+            return Decimal(str(v))
+        if isinstance(v, str):
+            s = v.strip()
             if s == "" or s.lower() == "nan":
                 return None
+            # be tolerant to commas / percent
+            s = s.replace(",", "").replace("%", "")
             return Decimal(s)
     except Exception:
         return None
@@ -80,7 +83,6 @@ class SQL_DB_CombinedTables:
 
     # ---------- Setup ----------
     def ensure_full_table(self) -> None:
-        # Create with chain & price columns if missing; if table exists without them, try to alter.
         self.execute(
             """
             CREATE TABLE IF NOT EXISTS full_table (
@@ -102,7 +104,6 @@ class SQL_DB_CombinedTables:
             ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
         )
-        # Try to add the columns if this script runs against an older table version
         try:
             self.execute("ALTER TABLE full_table ADD COLUMN chain VARCHAR(32) NOT NULL DEFAULT 'hydration'")
         except MySQLError:
@@ -112,7 +113,7 @@ class SQL_DB_CombinedTables:
         except MySQLError:
             pass
 
-    # ---------- Utility: existing columns ----------
+    # ---------- Utility ----------
     def table_columns_lower(self, table: str) -> List[str]:
         rows = self.execute(
             """
@@ -124,7 +125,6 @@ class SQL_DB_CombinedTables:
         )
         return [r["cname"] for r in rows]
 
-    # ---------- Fetch latest batch per table ----------
     def latest_batch_id(self, table: str) -> Optional[int]:
         rows = self.execute(
             f"""
@@ -136,7 +136,7 @@ class SQL_DB_CombinedTables:
         )
         return int(rows[0]["batch_id"]) if rows else None
 
-    # ---------- Latest price map from Hydration_price + Bifrost_staking_table ----------
+    # ---------- Latest price map (Hydration primary, Bifrost staking fallback per symbol) ----------
     def latest_price_map(self) -> Dict[str, Decimal]:
         mp: Dict[str, Decimal] = {}
 
@@ -145,56 +145,54 @@ class SQL_DB_CombinedTables:
         if hydr_batch is not None:
             try:
                 rows = self.execute(
-                    """
-                    SELECT symbol, price_usdt
-                    FROM `Hydration_price`
-                    WHERE batch_id = %s
-                    """,
+                    "SELECT symbol, price_usdt FROM `Hydration_price` WHERE batch_id = %s",
                     (hydr_batch,),
                 )
                 for r in rows:
                     sym = r.get("symbol")
                     price = _to_decimal(r.get("price_usdt"))
-                    if sym is None or price is None:
-                        continue
-                    mp[str(sym).lower()] = price
-                # keep for logging
+                    if sym and price is not None:
+                        mp[str(sym).lower()] = price
                 self._latest_price_batch = hydr_batch  # type: ignore[attr-defined]
             except MySQLError as e:
                 print(f"⚠️ Hydration_price read failed for batch {hydr_batch}: {e}")
 
-        # 2) Augment: Bifrost_staking_table (latest batch by batch_id)
-        bifrost_batch = self.latest_batch_id("Bifrost_staking_table")
-        if bifrost_batch is not None:
-            try:
-                # Use latest batch_id; ORDER BY created_at ensures most recent rows first if duplicates exist
-                rows = self.execute(
-                    """
-                    SELECT symbol, price
-                    FROM `Bifrost_staking_table`
-                    WHERE batch_id = %s
-                    ORDER BY created_at DESC
-                    """,
-                    (bifrost_batch,),
-                )
-                for r in rows:
-                    sym = r.get("symbol")
-                    price = _to_decimal(r.get("price"))
-                    if sym is None or price is None:
-                        continue
+        # 2) Fallback: latest-per-symbol from Bifrost_staking_table
+        # (self-join version works on MySQL 5.7+; adds batch_id tie-breaker)
+        try:
+            rows = self.execute(
+                """
+                SELECT s.symbol, s.price
+                FROM Bifrost_staking_table s
+                JOIN (
+                    SELECT symbol, MAX(created_at) AS max_created
+                    FROM Bifrost_staking_table
+                    WHERE symbol IS NOT NULL AND price IS NOT NULL
+                    GROUP BY symbol
+                ) m
+                  ON m.symbol = s.symbol AND s.created_at = m.max_created
+                JOIN (
+                    SELECT s2.symbol, s2.created_at, MAX(s2.batch_id) AS max_batch
+                    FROM Bifrost_staking_table s2
+                    WHERE s2.symbol IS NOT NULL AND s2.price IS NOT NULL
+                    GROUP BY s2.symbol, s2.created_at
+                ) b
+                  ON b.symbol = s.symbol AND b.created_at = s.created_at AND b.max_batch = s.batch_id
+                """
+            )
+            for r in rows:
+                sym = r.get("symbol")
+                price = _to_decimal(r.get("price"))
+                if sym and price is not None:
                     k = str(sym).lower()
-                    # Only fill gaps; keep Hydration as source of truth when present
                     if k not in mp:
                         mp[k] = price
-                # keep for logging
-                self._latest_bifrost_price_batch = bifrost_batch  # type: ignore[attr-defined]
-            except MySQLError as e:
-                print(f"⚠️ Bifrost_staking_table read failed for batch {bifrost_batch}: {e}")
+        except MySQLError as e:
+            print(f"⚠️ Bifrost_staking_table latest-per-symbol read failed: {e}")
 
         return mp
 
-
-    # ---------- Extractors (only needed columns) ----------
+    # ---------- Extractors ----------
     def rows_from_hydration(self, batch_id: int, price_map: Dict[str, Decimal]) -> List[Dict[str, Any]]:
         rows = self.execute(
             """
@@ -241,7 +239,6 @@ class SQL_DB_CombinedTables:
                 "token0_symbol": r.get("token0_symbol"),
                 "token1_symbol": r.get("token1_symbol"),
             }
-            # Single price is ambiguous for pools; set NULL for now.
             rec = dict(
                 source="pool_data",
                 chain="moonbeam",
@@ -250,69 +247,54 @@ class SQL_DB_CombinedTables:
                 farm_apy=_to_decimal(r.get("farming_apr")),
                 pool_apy=_to_decimal(r.get("pools_apr")),
                 apy=_to_decimal(r.get("final_apr")),
-                tvl=None,  # not defined yet
+                tvl=None,
                 volume=_to_decimal(r.get("volume_usd_24h")),
                 tx=(int(r["tx_count"]) if r.get("tx_count") is not None else None),
-                price=None,
+                price=None,  # ambiguous for pools
                 created_at=r.get("created_at"),
             )
             out.append(rec)
         return out
 
-    def rows_from_bifrost(self, batch_id: int, table: str, price_map: Dict[str, Decimal]) -> List[Dict[str, Any]]:
-        # Discover actual columns (case-insensitive)
-        cols_lower = set(self.table_columns_lower(table))
-
-        def first_present(candidates):
-            for c in candidates:
-                if c.lower() in cols_lower:
-                    return c  # return original candidate (proper case for quoting)
-            return None
-
-        # Real column names (if present)
-        batch_col = first_present(["batch_id", "BatchID", "batch", "batchId"])
-        sym_col   = first_present(["symbol", "Symbol", "asset", "Asset"])
-        farm_col  = first_present(["farmingAPY", "apyReward", "farming_apy"])
-        base_col  = first_present(["baseApy", "apyBase", "base_apy"])
-        total_col = first_present(["totalApy", "apy", "total_apy"])
-        tvl_col   = first_present(["tvl", "TVL", "tvl_usd"])
-        time_col  = first_present(["created_at", "CreatedAt", "timestamp"])
-
-        def pick(real_name: str | None, alias: str) -> str:
-            return f"`{real_name}` AS {alias}" if real_name else f"NULL AS {alias}"
-
-        select_parts = [
-            pick(batch_col, "batch_id"),
-            pick(sym_col,   "sym"),
-            pick(farm_col,  "farming_apy"),
-            pick(base_col,  "base_apy"),
-            pick(total_col, "total_apy"),
-            pick(tvl_col,   "tvl_val"),
-            pick(time_col,  "created_at"),
-        ]
-
-        where_clauses = []
-        params: List[Any] = []
-
-        # Only filter by batch if the column exists
-        if batch_col:
-            where_clauses.append(f"`{batch_col}` = %s")
-            params.append(batch_id)
-
-        # Exclude meta rows like tvl/address/revenue if a symbol-like column exists
-        if sym_col:
-            # Case-insensitive NOT IN
-            where_clauses.append(f"LOWER(`{sym_col}`) NOT IN (%s, %s, %s, %s)")
-            params.extend(["tvl", "addresses", "revenue","bncPrice"])
-
-        sql = f"SELECT {', '.join(select_parts)} FROM `{table}`"
-        if where_clauses:
-            sql += " WHERE " + " AND ".join(where_clauses)
-
+    # --- New: use Bifrost_site_table latest non-NULL per Asset (APY comes from site table) ---
+    def rows_from_bifrost_site_latest(self, price_map: Dict[str, Decimal]) -> List[Dict[str, Any]]:
+        """
+        Pull the latest non-NULL APY row per Asset from Bifrost_site_table
+        (independent of batch_id), and match price via price_map.
+        """
         try:
-            rows = self.execute(sql, tuple(params))
+            rows = self.execute(
+                """
+                SELECT t.Asset AS sym,
+                       t.apyReward AS farming_apy,
+                       t.apyBase   AS base_apy,
+                       COALESCE(t.apy, t.apyBase + t.apyReward) AS total_apy,
+                       t.tvl       AS tvl_val,
+                       t.batch_id,
+                       t.created_at
+                FROM Bifrost_site_table t
+                JOIN (
+                    SELECT Asset, MAX(created_at) AS max_created
+                    FROM Bifrost_site_table
+                    WHERE Asset IS NOT NULL
+                      AND LOWER(Asset) NOT IN ('tvl','addresses','revenue','bncprice')
+                      AND (apy IS NOT NULL OR apyBase IS NOT NULL OR apyReward IS NOT NULL)
+                    GROUP BY Asset
+                ) m
+                  ON m.Asset = t.Asset AND t.created_at = m.max_created
+                JOIN (
+                    SELECT Asset, created_at, MAX(batch_id) AS max_batch
+                    FROM Bifrost_site_table
+                    WHERE Asset IS NOT NULL
+                      AND LOWER(Asset) NOT IN ('tvl','addresses','revenue','bncprice')
+                      AND (apy IS NOT NULL OR apyBase IS NOT NULL OR apyReward IS NOT NULL)
+                    GROUP BY Asset, created_at
+                ) b
+                  ON b.Asset = t.Asset AND b.created_at = t.created_at AND b.max_batch = t.batch_id
+                """
+            )
         except MySQLError as e:
-            print(f"⚠️ MySQL error when querying {table}: {e}\nSQL: {sql}\nPARAMS: {params}")
+            print(f"⚠️ Bifrost_site_table latest-per-asset read failed: {e}")
             return []
 
         out: List[Dict[str, Any]] = []
@@ -320,7 +302,7 @@ class SQL_DB_CombinedTables:
             sym = r.get("sym")
             price = price_map.get(str(sym).lower()) if sym is not None else None
             rec = dict(
-                source=table,
+                source="Bifrost_site_table",
                 chain="bifrost",
                 batch_id=r.get("batch_id"),
                 symbol=json.dumps({"symbol": sym}) if sym else None,
@@ -335,7 +317,6 @@ class SQL_DB_CombinedTables:
             )
             out.append(rec)
         return out
-
 
     # ---------- Insert ----------
     def insert_full_rows(self, rows: List[Dict[str, Any]]) -> int:
@@ -375,20 +356,8 @@ class SQL_DB_CombinedTables:
 
         hydration_batch = self.latest_batch_id("hydration_data")
         pool_batch = self.latest_batch_id("pool_data")
-        bifrost_tables_to_try = ["Bifrost_site_table", "Bifrost_staking_table"]
-        bifrost_batch = None
-        bifrost_table_used = None
-        for t in bifrost_tables_to_try:
-            try:
-                b = self.latest_batch_id(t)
-            except MySQLError:
-                b = None
-            if b is not None:
-                bifrost_batch = b
-                bifrost_table_used = t
-                break
 
-        # Build latest price map (from Hydration_price)
+        # Build latest price map from Hydration + (fallback) Bifrost staking (latest per symbol)
         price_map = self.latest_price_map()
         price_batch = getattr(self, "_latest_price_batch", None)
 
@@ -397,20 +366,20 @@ class SQL_DB_CombinedTables:
             rows.extend(self.rows_from_hydration(hydration_batch, price_map))
         if pool_batch is not None:
             rows.extend(self.rows_from_pool(pool_batch, price_map))
-        if bifrost_batch is not None and bifrost_table_used is not None:
-            rows.extend(self.rows_from_bifrost(bifrost_batch, bifrost_table_used, price_map))
+
+        # Always use Bifrost_site_table latest-per-asset for APY
+        rows.extend(self.rows_from_bifrost_site_latest(price_map))
 
         inserted = self.insert_full_rows(rows)
-        print(f"✅ Inserted {inserted} row(s) into full_table from latest batches.")
+        print(f"✅ Inserted {inserted} row(s) into full_table from latest sources.")
         if hydration_batch is not None:
             print(f"  - hydration_data batch_id = {hydration_batch}")
         if pool_batch is not None:
             print(f"  - pool_data batch_id      = {pool_batch}")
-        if bifrost_batch is not None:
-            print(f"  - {bifrost_table_used} batch_id = {bifrost_batch}")
+        print("  - bifrost source          = Bifrost_site_table (latest-per-asset, APY)")
         if price_batch is not None:
-            print(f"  - Hydration_price batch_id = {price_batch}")
-
+            print(f"  - Hydration_price batch_id = {price_batch} (prices primary)")
+        print("  - Bifrost_staking_table used as price fallback (latest per symbol)")
 
 def main() -> None:
     load_dotenv()
@@ -421,6 +390,6 @@ def main() -> None:
     combiner = SQL_DB_CombinedTables(user=user, password=password, db=db, host=host)
     combiner.run_once()
 
-
 if __name__ == "__main__":
     main()
+
