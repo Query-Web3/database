@@ -1,0 +1,31 @@
+{
+  "name": "@galacticcouncil/math-liquidity-mining",
+  "version": "1.2.0",
+  "description": "Liquidity mining math",
+  "author": "GalacticCouncil",
+  "repository": {
+    "directory": "packages/math-liquidity-mining",
+    "type": "git",
+    "url": "git+https://github.com/galacticcouncil/sdk.git"
+  },
+  "keywords": [
+    "hydration",
+    "basilisk",
+    "math",
+    "liquidity-mining"
+  ],
+  "bugs": {
+    "url": "https://github.com/galacticcouncil/sdk/issues"
+  },
+  "files": [
+    "build"
+  ],
+  "main": "./build/index.cjs",
+  "module": "./build/index.mjs",
+  "types": "./build/index.d.ts",
+  "scripts": {
+    "build": "node ../../scripts/build-math.mjs --name liquidity-mining",
+    "clean": "rimraf build",
+    "link": "npm ln"
+  }
+}

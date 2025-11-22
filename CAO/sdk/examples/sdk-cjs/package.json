@@ -1,0 +1,18 @@
+{
+  "name": "sdk-cjs",
+  "private": true,
+  "main": "index.cjs",
+  "scripts": {
+    "start": "GC_DEBUG=true node index.cjs",
+    "start:xcm": "GC_DEBUG=true node xcm.cjs"
+  },
+  "keywords": [],
+  "devDependencies": {
+    "node": "^22.12.0"
+  },
+  "dependencies": {
+    "@galacticcouncil/sdk": "^10.1.0",
+    "@galacticcouncil/xcm-sdk": "^10.7.0",
+    "@galacticcouncil/xcm-cfg": "^10.15.0"
+  }
+}

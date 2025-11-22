@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "origin/master",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "sdk-cjs",
+    "sdk-esm",
+    "sdk-next-cjs",
+    "sdk-next-esm",
+    "sdk-swapp",
+    "xcm-transfer",
+    "xcm-test"
+  ],
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  }
+}
