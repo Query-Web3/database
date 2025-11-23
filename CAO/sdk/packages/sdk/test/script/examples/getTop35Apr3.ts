@@ -22,7 +22,7 @@ function pickFlag(name: string, fallback?: string) {
   return fallback;
 }
 
-const RPC_URL = pickFlag('rpc', 'wss://hydradx-rpc.dwellir.com')!;
+const RPC_URL = pickFlag('rpc', 'wss://rpc.helikon.io/hydradx')!;
 const ID_FROM = parseInt(pickFlag('from', '1')!, 10);
 const ID_TO = parseInt(pickFlag('to', '35')!, 10);
 const CONCURRENCY = Math.max(1, parseInt(pickFlag('concurrency', '6')!, 10)); // 5-8 is a good range
