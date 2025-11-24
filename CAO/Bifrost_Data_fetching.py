@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 
 from SQL_DB import SQL_DB
+import numpy as np
 
 def fetch_data():
     # Fetching data from the API
@@ -74,6 +75,33 @@ def fetch_data2():
     else:
         print(f"Failed to fetch data. Status code: {response.status_code}")    
 
+def sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None:
+        return df
+
+    df = df.copy()
+
+    # 1) Normalize common string forms of NaN/inf to real NaN
+    df.replace(
+        ["NaN", "nan", "NAN", "Inf", "INF", "-Inf", "-INF"],
+        np.nan,
+        inplace=True
+    )
+
+    # 2) Replace numeric infinities with NaN
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    # 3) OPTIONAL: try to coerce obvious numeric-looking object columns
+    for col in df.columns:
+        if df[col].dtype == "object":
+            # This will turn "1.23" → 1.23, "NaN" already handled above
+            df[col] = pd.to_numeric(df[col], errors="ignore")
+
+    # 4) Turn all NaN into None so MySQL connector sends NULL
+    df = df.where(pd.notnull(df), None)
+
+    return df
+
 def main():
     # Load environment variables from .env file (if present)
     load_dotenv()
@@ -106,7 +134,11 @@ def main():
         # print(data_frames2)
 
         batch_id = int(time.time())  # Current timestamp in seconds
-        sqlDB.update_bifrost_database(data_frames1,data_frames2,batch_id)
+
+        df1 =  sanitize_df(data_frames1)
+        df2 =  sanitize_df(data_frames2)
+
+        sqlDB.update_bifrost_database(df1,df2,batch_id)
 
         print("\nSleeping for 1 hour...")
         time.sleep(3600)

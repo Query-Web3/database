@@ -159,7 +159,7 @@ class SQL_DB:
             self.executeSQL(sql_command)
 
     def errorMessage(self,message):
-        print("error message:" + message)
+        print("error message:" , message)
 
 
     def executeSQL(self, query,params=None):
@@ -211,67 +211,58 @@ class SQL_DB:
         table1 = "Bifrost_site_table"
         table2 = "Bifrost_staking_table"
         table3 = "Bifrost_batchID_table"
-        
-        # Insert records from df1 into Bifrost_site_table table
-        for _, row in df1.iterrows():
-            # Safely format the values as a comma-separated string
-            values_list = []
-            for value in [batch_id] + row.tolist():
-                if isinstance(value, list):  # Convert lists to JSON strings
-                    values_list.append("'" + json.dumps(value).replace("'", "\\'") + "'")
-                elif pd.isna(value) or value is None:  # Handle missing values
-                    values_list.append("NULL")
-                elif isinstance(value, str):  # Escape single quotes in strings
-                    values_list.append("'" + value.replace("'", "\\'") + "'")
-                else:  # Convert other types to strings
-                    values_list.append(str(value))
-            
-            # Join the values into a string for the SQL query
-            values = ', '.join(values_list)
 
-            #print("handling value: " + str(values))
-            
-            # Construct the SQL query using regular string concatenation
-            query1 = "INSERT INTO " + table1 + " (batch_id, " + ', '.join(df1.columns) + ") " + \
-                    "VALUES (" + values + ")"
-            
-            #print(query1)
-            
-            # Execute the query directly
-            self.executeSQL(query1)
+        # ---------- helper to clean + convert a single value ----------
+        def clean_value(val):
+            # Lists -> JSON string
+            if isinstance(val, list):
+                return json.dumps(val)
 
+            # None / NaN -> None (becomes NULL in MySQL)
+            if val is None or (isinstance(val, float) and (math.isnan(val) or math.isinf(val))):
+                return None
 
+            # Pandas-style NaN / NaT detection for any type
+            try:
+                if pd.isna(val):
+                    return None
+            except TypeError:
+                # pd.isna() can raise on some non-numeric types, ignore
+                pass
 
+            # Otherwise keep value as-is (str, int, float, etc.)
+            return val
 
-        
-        # Insert records from df2 into Bifrost_staking_table table
-        for _, row in df2.iterrows():
-            # Safely format the values as a comma-separated string
-            values_list = [
-                "NULL" if pd.isna(value) else
-                "'" + str(value).replace("'", "\\'") + "'" if isinstance(value, str) else
-                str(value)
-                for value in [batch_id] + row.tolist()
-            ]
-            values = ', '.join(values_list)
+        # ============= INSERT df1 into Bifrost_site_table =============
+        if df1 is not None and len(df1) > 0:
+            cols1 = df1.columns.tolist()
+            # +1 for batch_id
+            placeholders1 = ", ".join(["%s"] * (len(cols1) + 1))
+            col_names1 = ", ".join(["batch_id"] + cols1)
+            query1 = f"INSERT INTO {table1} ({col_names1}) VALUES ({placeholders1})"
 
-            # Create the query
-            query2 = (
-                "INSERT INTO " + table2 + " (batch_id, " + ", ".join(df2.columns) + ") "
-                "VALUES (" + values + ");"
-            )
+            for _, row in df1.iterrows():
+                params = [batch_id]
+                for val in row.tolist():
+                    params.append(clean_value(val))
+                # Use parameterized query
+                self.executeSQL(query1, params)
 
-            # Execute the query
-            self.executeSQL(query2)
-        
-        # insert into df3 for the batch ID
-        query3 = "INSERT INTO " + table3 + " (batch_id, chain, " + 'status' + ") " + \
-                    "VALUES (\"" + str(batch_id) + "\", \"Bifrost\",\"F\""  + ")"
-        
-        #print(query3)
-        
-        self.executeSQL(query3)
+        # ============= INSERT df2 into Bifrost_staking_table ==========
+        if df2 is not None and len(df2) > 0:
+            cols2 = df2.columns.tolist()
+            placeholders2 = ", ".join(["%s"] * (len(cols2) + 1))
+            col_names2 = ", ".join(["batch_id"] + cols2)
+            query2 = f"INSERT INTO {table2} ({col_names2}) VALUES ({placeholders2})"
 
+            for _, row in df2.iterrows():
+                params = [batch_id]
+                for val in row.tolist():
+                    params.append(clean_value(val))
+                self.executeSQL(query2, params)
 
-        
+        # ============= INSERT batch_id into Bifrost_batchID_table =====
+        query3 = f"INSERT INTO {table3} (batch_id, chain, status) VALUES (%s, %s, %s)"
+        self.executeSQL(query3, (batch_id, "Bifrost", "F"))
+
         print(f"Records successfully updated for batch_id {batch_id}.")
