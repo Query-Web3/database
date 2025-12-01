@@ -33,7 +33,7 @@ def load_assets():
 
 # Fetch batch prices for assets 0 to 30
 def fetch_batch_prices():
-    script_path = "sdk/packages/sdk/test/script/examples/getBatchPrice2.ts"
+    script_path = "hy/script/getBatchPrice2.ts"
     try:
         result = subprocess.run(
             ["npx", "tsx", script_path],

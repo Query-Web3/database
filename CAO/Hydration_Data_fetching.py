@@ -40,7 +40,7 @@ def load_assets():
 
 # 2. Run TypeScript script to update farm_apr.json and load the result
 def fetch_farm_apr():
-    script_path = "sdk/packages/sdk/test/script/examples/getTop35Apr3.ts"
+    script_path = "hy/script/getTop35Apr3.ts"
     output_file = "./farm_apr.json"
     
     try:

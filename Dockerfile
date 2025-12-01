@@ -21,7 +21,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 
 # ==================== 第二阶段：最终运行镜像（轻量）====================
-# 基础镜像：使用更轻量的 Python  slim 镜像（约 100MB 左右，比完整镜像小 50%+）
 FROM python:3.11-slim
 
 # 安全优化：创建非 root 用户（避免容器内用 root 运行应用）

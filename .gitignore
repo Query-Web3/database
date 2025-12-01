@@ -1,4 +1,5 @@
 **/__pycache__
 **/.venv
 **/.env
-CAO/sdk/node_modules
+**/node_modules/
+**/farm_apr.json
