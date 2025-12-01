@@ -60,8 +60,7 @@ class SQL_DB_Stella:
                 password=self.passWord,
                 host='127.0.0.1',
                 database=self.dataBase,
-                port=self.port,
-                ssl_disabled=True
+                port=self.port
             )
             cursor = cnx.cursor()
             if params is None:

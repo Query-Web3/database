@@ -36,8 +36,7 @@ class SQL_DB_Hydration_Price:
                 password=self.passWord,
                 host='127.0.0.1',
                 database=self.dataBase,
-                port=self.port,
-                ssl_disabled=True
+                port=self.port
             )
             cursor = cnx.cursor()
             if params is None:

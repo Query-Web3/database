@@ -115,8 +115,7 @@ class SQL_DB_MergeTables:
             password=self.passWord,
             host='127.0.0.1',
             database=self.dataBase, 
-            port=self.port, 
-            ssl_disabled=True
+            port=self.port
         )
 
     def executeSQL(self, query, params=None):

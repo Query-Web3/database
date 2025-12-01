@@ -94,8 +94,7 @@ def main():
         passWord=db_password,
         dataBase=db_name,
         initializeTable=True,
-        db_port=db_port,
-        ssl_disabled=True
+        db_port=db_port
     )
     
     try:

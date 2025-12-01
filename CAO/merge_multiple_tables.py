@@ -5,7 +5,7 @@
 
 from dotenv import load_dotenv
 import os
-from SQL_DB_mergeTables_new import SQL_DB_MergeTables
+from SQL_DB_mergeTables import SQL_DB_MergeTables
 
 def main():
     # Load environment variables from .env file (if present)
