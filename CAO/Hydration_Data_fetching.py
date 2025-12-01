@@ -52,8 +52,6 @@ def fetch_farm_apr():
             check=True
         )
         print(f"getTop35Apr.ts output: {result.stdout}")
-        if result.stderr:
-            print(f"Warnings/Errors from getTop35Apr.ts: {result.stderr}")
         
         with open(output_file, 'r') as f:
             farm_apr_data = json.load(f)
@@ -69,29 +67,7 @@ def fetch_farm_apr():
         print(f"Error fetching farm APR: {e}")
         return {}
 
-# 3. Fetch pool APR from API
-def fetch_pool_apr(asset_id):
-    #url = f"https://api.hydradx.io/hydradx-ui/v2/stats/fees/{asset_id}"
-    url = f"https://hydradx-api-app-2u5klwxkrq-ey.a.run.app/hydradx-ui/v1/stats/fees/{asset_id}?timeframe=1mon"
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                return float(data[0].get('projected_apr_perc', 0))
-            return 0
-        else:
-            print(f"Failed to fetch pool APR for asset {asset_id}: {response.status_code}")
-            return 0
-    except Exception as e:
-        print(f"Error fetching pool APR for asset {asset_id}: {e}")
-        return 0
-
-# 4. Calculate total APR (sum of farm APR and pool APR)
-def calculate_total_apr(farm_apr, pool_apr):
-    return farm_apr + pool_apr
-
-# 5. Fetch TVL from API
+# 3. Fetch TVL from API
 def fetch_tvl(asset_id):
     url = f"https://hydradx-api-app-2u5klwxkrq-ey.a.run.app/hydradx-ui/v1/stats/tvl/{asset_id}"
     try:
@@ -99,6 +75,8 @@ def fetch_tvl(asset_id):
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
+                # The API usually returns history, index 0 is typically the latest or oldest depending on sort
+                # For this specific API, usually [0] is latest, but let's be safe.
                 return float(data[0].get('tvl_usd', 0))
             return 0
         else:
@@ -108,14 +86,16 @@ def fetch_tvl(asset_id):
         print(f"Error fetching TVL for asset {asset_id}: {e}")
         return 0
 
-# 6. Fetch latest volume from API
+# 4. Fetch latest volume from API
 def fetch_latest_volume(asset_id):
-    url = f"https://hydradx-api-app-2u5klwxkrq-ey.a.run.app/hydradx-ui/v1/stats/charts/volume/{asset_id}"
+    # Using the charts endpoint to get the last bucket of volume
+    url = f"https://hydradx-api-app-2u5klwxkrq-ey.a.run.app/hydradx-ui/v1/stats/volume/{asset_id}"
     try:
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
+                # Get the last entry in the chart (latest day)
                 latest = data[-1]
                 return float(latest.get('volume_usd', 0))
             return 0
@@ -126,6 +106,28 @@ def fetch_latest_volume(asset_id):
         print(f"Error fetching volume for asset {asset_id}: {e}")
         return 0
 
+# 5. Calculate Pool APR manually
+def calculate_pool_apr(tvl, volume_24h):
+    """
+    Calculates APR based on 24h Volume and TVL.
+    Formula: (Volume * Fee * 365) / TVL
+    Standard Hydration Fee = 0.25% (0.0025)
+    """
+    if tvl <= 0:
+        return 0.0
+        
+    FEE_RATE = 0.0025 # 0.25%
+    
+    daily_fees = volume_24h * FEE_RATE
+    yearly_fees = daily_fees * 365
+    apr = (yearly_fees / tvl) * 100 # Convert to percentage
+    
+    return apr
+
+# 6. Calculate total APR (sum of farm APR and pool APR)
+def calculate_total_apr(farm_apr, pool_apr):
+    return farm_apr + pool_apr
+
 # Process data only for assets in farm_apr.json
 def process_data(assets, farm_apr_data):
     processed_data = []
@@ -135,25 +137,31 @@ def process_data(assets, farm_apr_data):
     
     # Only process assets present in farm_apr_data
     for asset_id in farm_apr_data.keys():
-        asset_id_str = str(asset_id)  # Ensure string consistency
-        symbol = symbol_lookup.get(asset_id_str, 'N/A')  # Default to 'N/A' if not found
+        asset_id_str = str(asset_id)
+        symbol = symbol_lookup.get(asset_id_str, 'N/A')
         
-        # Fetch data
-        farm_apr = float(farm_apr_data.get(asset_id, 0))
-        pool_apr = fetch_pool_apr(asset_id)
-        total_apr = calculate_total_apr(farm_apr, pool_apr)
+        # 1. Fetch TVL & Volume FIRST (Needed for calc)
         tvl = fetch_tvl(asset_id)
         volume = fetch_latest_volume(asset_id)
+        
+        # 2. Get Farm APR (from local JSON)
+        farm_apr = float(farm_apr_data.get(asset_id, 0))
+        
+        # 3. Calculate Pool APR manually
+        pool_apr = calculate_pool_apr(tvl, volume)
+        
+        # 4. Total
+        total_apr = calculate_total_apr(farm_apr, pool_apr)
         
         # Structure the data
         asset_data = {
             'asset_id': asset_id_str,
             'symbol': symbol,
-            'farm_apr': farm_apr,
-            'pool_apr': pool_apr,
-            'total_apr': total_apr,
-            'tvl_usd': tvl,
-            'volume_usd': volume,
+            'farm_apr': round(farm_apr, 2),
+            'pool_apr': round(pool_apr, 2),
+            'total_apr': round(total_apr, 2),
+            'tvl_usd': round(tvl, 2),
+            'volume_usd': round(volume, 2),
             'timestamp': datetime.utcnow().isoformat()
         }
         processed_data.append(asset_data)
@@ -193,17 +201,17 @@ def main():
             # Print for verification
             for data in processed_data:
                 print(f"Asset {data['asset_id']} ({data['symbol']}):")
-                print(f"  Farm APR: {data['farm_apr']}%")
-                print(f"  Pool APR: {data['pool_apr']}%")
+                print(f"  Farm APR:  {data['farm_apr']}%")
+                print(f"  Pool APR:  {data['pool_apr']}%")
                 print(f"  Total APR: {data['total_apr']}%")
-                print(f"  TVL USD: {data['tvl_usd']}")
-                print(f"  Volume USD: {data['volume_usd']}")
+                print(f"  TVL USD:   ${data['tvl_usd']:,.2f}")
+                print(f"  Vol USD:   ${data['volume_usd']:,.2f}")
                 print("---")
             
             # Store in database
             sql_db.update_hydration_database(processed_data, batch_id)
             
-            print("\nSleeping for 12 hour...")
+            print("\nSleeping for 12 hours...")
             time.sleep(43200)
     
     except Exception as e:
