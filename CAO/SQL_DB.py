@@ -32,7 +32,7 @@ import math
 
 
 class SQL_DB:
-    def __init__(self, db_config = None, userName = None, passWord = None, dataBase = None, initializeTable = False):
+    def __init__(self, db_config = None, userName = None, passWord = None, port = 3306, dataBase = None, initializeTable = False):
         '''
         Upon initialization, the DB_init class will connect to database
         You need to either set up db_config or userName and passWord
@@ -59,6 +59,7 @@ class SQL_DB:
                 self.userName = userName
                 self.passWord = passWord
                 self.dataBase = dataBase
+                self.port = port
 
         if initializeTable == True:
             #print("Warning, will drop the tables now")  we don't want to drop the table
@@ -90,7 +91,7 @@ class SQL_DB:
             exiting_online_node INT,
             gas_fee_income DECIMAL(20,6),
             id INT,
-            mev_7day_apy DECIMAL(20,6),
+            mev_7day_apy VARCHAR(255),
             mev_apy DECIMAL(20,6),
             mev_income DECIMAL(20,6),
             online_node INT,
@@ -108,7 +109,7 @@ class SQL_DB:
             stakingIncome DECIMAL(20,6),
             mevApy DECIMAL(20,6),
             mevIncome DECIMAL(20,6),
-            gasFeeApy DECIMAL(20,6),
+            gasFeeApy VARCHAR(255),
             gasFeeIncome DECIMAL(20,6),
             totalApy DECIMAL(20,6),
             totalIncome DECIMAL(20,6),
@@ -163,7 +164,13 @@ class SQL_DB:
 
     def executeSQL(self, query,params=None):
         try:
-            self.cnx = mysql.connector.connect(user=self.userName, password=self.passWord, host='127.0.0.1', database=self.dataBase)
+            self.cnx = mysql.connector.connect(
+                user=self.userName, 
+                password=self.passWord, 
+                host='127.0.0.1',
+                database=self.dataBase,
+                port=self.port
+            )
             cursor = self.cnx.cursor()
             if params == None:
                 cursor.execute(query)

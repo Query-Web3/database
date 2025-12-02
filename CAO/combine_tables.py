@@ -16,8 +16,9 @@ def main():
     password = os.getenv("DB_PASSWORD", "")
     host = os.getenv("DB_HOST", "127.0.0.1")
     db = os.getenv("DB_NAME", "quantDATA")
+    db_port = os.getenv("DB_PORT",3306)
 
-    combiner = SQL_DB_CombinedTables(user=user, password=password, db=db, host=host)
+    combiner = SQL_DB_CombinedTables(user=user, password=password, db_port=db_port, db=db, host=host)
     combiner.run_once()
 
 if __name__ == "__main__":

@@ -49,19 +49,21 @@ def _to_decimal(v: Any) -> Optional[Decimal]:
 
 
 class SQL_DB_CombinedTables:
-    def __init__(self, user: str, password: str, db: str, host: str = "127.0.0.1") -> None:
+    def __init__(self, user: str, password: str, db: str, db_port: int = 3306, host: str = "127.0.0.1") -> None:
         self.user = user
         self.password = password
         self.db = db
         self.host = host
+        self.port = db_port
         self.conn = None  # type: ignore
 
     # ---------- DB helpers ----------
     def connect(self) -> None:
         if self.conn:
             return
+        
         self.conn = mysql.connector.connect(
-            user=self.user, password=self.password, host=self.host, database=self.db
+            user=self.user, password=self.password, host=self.host, database=self.db, port=self.port
         )
 
     def cursor(self):

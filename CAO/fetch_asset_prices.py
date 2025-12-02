@@ -11,6 +11,7 @@ load_dotenv()
 db_user = os.getenv("DB_USERNAME")
 db_password = os.getenv("DB_PASSWORD")
 db_name = os.getenv("DB_NAME")
+db_port = os.getenv("DB_PORT",3306)
 
 # Validate environment variables
 required_env_vars = {"DB_USERNAME": db_user, "DB_PASSWORD": db_password, "DB_NAME": db_name}
@@ -32,7 +33,7 @@ def load_assets():
 
 # Fetch batch prices for assets 0 to 30
 def fetch_batch_prices():
-    script_path = "sdk/packages/sdk/test/script/examples/getBatchPrice2.ts"
+    script_path = "hy/script/getBatchPrice2.ts"
     try:
         result = subprocess.run(
             ["npx", "tsx", script_path],
@@ -92,7 +93,8 @@ def main():
         userName=db_user,
         passWord=db_password,
         dataBase=db_name,
-        initializeTable=True
+        initializeTable=True,
+        db_port=db_port
     )
     
     try:

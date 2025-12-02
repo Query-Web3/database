@@ -1,0 +1,16 @@
+{
+  "name": "hy",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+
+  },
+  "dependencies": {
+    "@galacticcouncil/api-augment": "^0.8.1",
+    "@galacticcouncil/sdk": "^10.2.0"
+  }
+}

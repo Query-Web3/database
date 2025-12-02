@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent
 BIFROST_SCRIPT = BASE_DIR / "Bifrost_Data_fetching.py"
 HYDRATION_SCRIPT = BASE_DIR / "Hydration_Data_fetching.py"
 ASSET_PRICES_SCRIPT = BASE_DIR / "fetch_asset_prices.py"
-MERGE_SCRIPT = BASE_DIR / "merge_multiple_tables.py"
+MERGE_SCRIPT = BASE_DIR / "combine_tables.py"
 
 
 def start_long_running_scripts():
