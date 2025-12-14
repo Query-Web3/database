@@ -20,11 +20,12 @@ class SQL_DB_MergeTables:
         db.run_merge()
     """
 
-    def __init__(self, userName, passWord, dataBase, port=3306, initializeTable=False):
+    def __init__(self, userName, passWord, host, dataBase, port=3306, initializeTable=False):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase
         self.port = port
+        self.host = host
         if initializeTable:
             self.initialize_tables()
 
@@ -113,7 +114,7 @@ class SQL_DB_MergeTables:
         return mysql.connector.connect(
             user=self.userName,
             password=self.passWord,
-            host='127.0.0.1',
+            host=self.host,
             database=self.dataBase, 
             port=self.port
         )

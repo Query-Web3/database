@@ -110,9 +110,10 @@ def main():
     db_password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME")
     db_port = os.getenv("DB_PORT",3306)
+    db_host = os.getenv("DB_HOST", "127.0.0.1")
     init_tables = "1"
     
-    sqlDB = SQL_DB(userName = db_user, passWord = db_password, dataBase = db_name, port = db_port, initializeTable=True)  # connect to the database
+    sqlDB = SQL_DB(userName = db_user, passWord = db_password, dataBase = db_name, host=db_host, port = db_port, initializeTable=True)  # connect to the database
 
     while True:
         print("\nFetching data...")
