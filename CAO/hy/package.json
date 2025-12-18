@@ -2,15 +2,16 @@
   "name": "hy",
   "version": "1.0.0",
   "description": "",
-  "license": "ISC",
+  "license": "Apache 2.0",
   "author": "",
   "type": "commonjs",
   "main": "index.js",
-  "scripts": {
-
-  },
+  "scripts": {},
   "dependencies": {
     "@galacticcouncil/api-augment": "^0.8.1",
     "@galacticcouncil/sdk": "^10.2.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }

@@ -15,6 +15,7 @@ db_user = os.getenv("DB_USERNAME")
 db_password = os.getenv("DB_PASSWORD")      
 db_name = os.getenv("DB_NAME")
 db_port = os.getenv("DB_PORT",3306)
+db_host = os.getenv("DB_HOST", "127.0.0.1")
 
 # Validate environment variables
 required_env_vars = {
@@ -46,7 +47,7 @@ def fetch_farm_apr():
     try:
         print(f"Running {script_path} to update {output_file}...")
         result = subprocess.run(
-            ["npx", "tsx", script_path, output_file],
+            ["tsx", script_path, output_file],
             capture_output=True,
             text=True,
             check=True
@@ -175,7 +176,8 @@ def main():
         passWord=db_password,
         dataBase=db_name,
         initializeTable=True,
-        db_port=db_port
+        db_port=db_port,
+        host=db_host
     )
     
     try:

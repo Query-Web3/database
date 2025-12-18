@@ -5,20 +5,23 @@ FROM python:3.11-slim AS builder
 # 设置工作目录（容器内）
 WORKDIR /app
 
-# 安装系统依赖（如需编译 C 扩展，如 pandas/numpy，需添加 gcc 等工具）
-# 非必要时可删除，仅保留基础依赖
+# 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libc6-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs
 
 # 复制依赖清单（利用 Docker 缓存：仅当 requirements.txt 变更时才重新安装依赖）
 COPY CAO /app/CAO
 
 # 升级 pip + 安装依赖到指定目录（便于后续复制，避免冗余）
-RUN pip install --no-cache-dir --upgrade pip \
+RUN cd /app/CAO && pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --target=/app/deps -r requirements.txt
 
+RUN cd /app/CAO/hy && npm install
 
 # ==================== 第二阶段：最终运行镜像（轻量）====================
 FROM python:3.11-slim
@@ -31,20 +34,22 @@ WORKDIR /app
 
 # 从构建阶段复制依赖（仅复制必要的依赖文件，减小镜像体积）
 COPY --from=builder /app/deps ./deps
+COPY --from=builder /app/CAO ./CAO
+COPY hacks/.env ./CAO
 
-# 复制应用代码（保留本地目录结构，关键：源路径是目录，目标路径是工作目录）
-# 注意：源路径不带 / 结尾，会复制整个 app 目录到容器 /app 下
-COPY CAO /app/CAO
+RUN apt-get update && apt-get install -y --no-install-recommends curl
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs
 
 # 配置 Python 路径（让 Python 能找到依赖包）
 ENV PYTHONPATH=/app:/app/deps
+ENV PATH=$PATH:/app/CAO/hy/node_modules/.bin
 
 # 更改文件所有权为非 root 用户（增强安全性）
-RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appgroup /app && mkdir /home/appuser && chown -R appuser:appgroup /home/appuser
 
 # 切换到非 root 用户运行
 USER appuser
 
-
 # 启动命令
-CMD []
+CMD ["python","/app/CAO/all_data_jobs.py"]
+# ENTRYPOINT ["python","/app/CAO/all_data_jobs.py"]

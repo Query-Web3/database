@@ -15,6 +15,7 @@ def main():
     db_password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME")
     db_port = os.getenv("DB_PORT",3306)
+    db_host = os.getenv("DB_HOST", "127.0.0.1")
     init_tables = "1"
 
     db = SQL_DB_MergeTables(
@@ -22,6 +23,7 @@ def main():
         passWord=db_password,
         dataBase=db_name,
         port=db_port,
+        host=db_host,
         initializeTable=init_tables
     )
     db.run_merge()

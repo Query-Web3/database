@@ -13,6 +13,8 @@ apiKEY = os.getenv("API_KEY")
 db_user = os.getenv("DB_USERNAME")
 db_password = os.getenv("DB_PASSWORD")
 db_name = os.getenv("DB_NAME")
+db_port = os.getenv("DB_PORT",3306)
+db_host = os.getenv("DB_HOST", "127.0.0.1")
 
 # Validate environment variables
 required_env_vars = {
@@ -256,6 +258,8 @@ def main():
         userName=db_user,
         passWord=db_password,
         dataBase=db_name,
+        db_port=db_port,
+        host=db_host,
         initializeTable=True
     )
     

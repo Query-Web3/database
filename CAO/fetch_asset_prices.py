@@ -12,6 +12,7 @@ db_user = os.getenv("DB_USERNAME")
 db_password = os.getenv("DB_PASSWORD")
 db_name = os.getenv("DB_NAME")
 db_port = os.getenv("DB_PORT",3306)
+db_host = os.getenv("DB_HOST", "127.0.0.1")
 
 # Validate environment variables
 required_env_vars = {"DB_USERNAME": db_user, "DB_PASSWORD": db_password, "DB_NAME": db_name}
@@ -36,7 +37,7 @@ def fetch_batch_prices():
     script_path = "hy/script/getBatchPrice2.ts"
     try:
         result = subprocess.run(
-            ["npx", "tsx", script_path],
+            ["tsx", script_path],
             capture_output=True,
             text=True,
             check=True
@@ -94,7 +95,8 @@ def main():
         passWord=db_password,
         dataBase=db_name,
         initializeTable=True,
-        db_port=db_port
+        db_port=db_port,
+        host=db_host
     )
     
     try:

@@ -32,7 +32,7 @@ import math
 
 
 class SQL_DB:
-    def __init__(self, db_config = None, userName = None, passWord = None, port = 3306, dataBase = None, initializeTable = False):
+    def __init__(self, db_config = None, userName = None, passWord = None, port = 3306, host="127.0.0.1", dataBase = None, initializeTable = False):
         '''
         Upon initialization, the DB_init class will connect to database
         You need to either set up db_config or userName and passWord
@@ -59,6 +59,7 @@ class SQL_DB:
                 self.userName = userName
                 self.passWord = passWord
                 self.dataBase = dataBase
+                self.host = host
                 self.port = port
 
         if initializeTable == True:
@@ -167,7 +168,7 @@ class SQL_DB:
             self.cnx = mysql.connector.connect(
                 user=self.userName, 
                 password=self.passWord, 
-                host='127.0.0.1',
+                host=self.host,
                 database=self.dataBase,
                 port=self.port
             )

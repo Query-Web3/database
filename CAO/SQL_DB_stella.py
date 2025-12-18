@@ -5,11 +5,12 @@ import logging
 import pandas as pd
 
 class SQL_DB_Stella:
-    def __init__(self, userName, passWord, dataBase, db_port=3306, initializeTable=False):
+    def __init__(self, userName, passWord, dataBase, host, db_port=3306, initializeTable=False):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase
         self.port = db_port
+        self.host = host
 
         if initializeTable:
             self.initialize_tables()
@@ -58,7 +59,7 @@ class SQL_DB_Stella:
             cnx = mysql.connector.connect(
                 user=self.userName,
                 password=self.passWord,
-                host='127.0.0.1',
+                host=self.host,
                 database=self.dataBase,
                 port=self.port
             )
