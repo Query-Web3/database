@@ -183,11 +183,11 @@ A **cross-chain, protocol-agnostic analytics table** that consolidates key DeFi 
 ---
 
 ## 🔁 Data Flow
-Bifrost_site_table ─┐
+Bifrost_site_table         ─┐
 
-Bifrost_staking_table ─┤
+Bifrost_staking_table         ─┤
 
-hydration_data ────────┼──► full_table
+hydration_data    ────────┼──► full_table
 
 pool_data ─────────────┘
 
