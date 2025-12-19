@@ -183,13 +183,14 @@ A **cross-chain, protocol-agnostic analytics table** that consolidates key DeFi 
 ---
 
 ## 🔁 Data Flow
-Bifrost_site_table         ─┐
+```
+Bifrost_site_table
+Bifrost_staking_table   |
+hydration_data          |----> full_table
+pool_data               |
+```
 
-Bifrost_staking_table         ─┤
-
-hydration_data    ────────┼──► full_table
-
-pool_data ─────────────┘
-
+All protocol-specific fact tables feed into `full_table`, which serves as the
+unified analytics layer.
 
 
