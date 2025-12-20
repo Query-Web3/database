@@ -11,3 +11,5 @@ cd $DIR/../
 tag=`date "+%Y-%m-%d-%H_%M"`
 
 docker build -t wetee/query_web3_database:$tag .
+
+docker push wetee/query_web3_database:$tag
