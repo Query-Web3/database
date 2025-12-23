@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+from dotenv import load_dotenv
+
+from db_migration.migration import Migration
+from SQL_DB_stella import SQL_DB_Stella
+from SQL_DB import SQL_DB
+from SQL_DB_hydration import SQL_DB_Hydration
+from SQL_DB_hydration_price import SQL_DB_Hydration_Price
 
 # Base directory where all the scripts live
 BASE_DIR = Path(__file__).resolve().parent
@@ -52,6 +60,7 @@ def run_merge_script():
 
 
 def main():
+    initialize_tables()
     # Start the three long-running fetch scripts
     processes = start_long_running_scripts()
 
@@ -65,11 +74,6 @@ def main():
         while True:
             now = time.time()
 
-            # Run merge script when it's time
-            if now >= next_merge_time:
-                run_merge_script()
-                next_merge_time = now + MERGE_INTERVAL_SEC
-
             # Optional: check if any fetch process died
             for p in processes:
                 if p.poll() is not None:
@@ -77,6 +81,11 @@ def main():
                     # If you want auto-restart, you could restart it here.
 
             time.sleep(10)  # avoid busy loop
+
+            # Run merge script when it's time
+            if now >= next_merge_time:
+                run_merge_script()
+                next_merge_time = now + MERGE_INTERVAL_SEC
 
     except KeyboardInterrupt:
         print("\nReceived Ctrl+C, stopping all processes...")
@@ -99,6 +108,54 @@ def main():
                     pass
 
         print("All processes stopped.")
+
+
+def initialize_tables():
+    load_dotenv()
+    db_user = os.getenv("DB_USERNAME", "root")
+    db_password = os.getenv("DB_PASSWORD", "")
+    db_host = os.getenv("DB_HOST", "127.0.0.1")
+    db_name = os.getenv("DB_NAME", "quantDATA")
+    db_port = os.getenv("DB_PORT",3306)
+
+    SQL_DB_Hydration_Price(
+        userName=db_user,
+        passWord=db_password,
+        dataBase=db_name,
+        initializeTable=True,
+        db_port=db_port,
+        host=db_host
+    )
+
+    SQL_DB_Hydration(
+        userName=db_user,
+        passWord=db_password,
+        dataBase=db_name,
+        initializeTable=True,
+        db_port=db_port,
+        host=db_host
+    )
+
+    SQL_DB(
+        userName = db_user, 
+        passWord = db_password, 
+        dataBase = db_name, 
+        host=db_host, 
+        port = db_port, 
+        initializeTable=True
+    )
+
+    SQL_DB_Stella(
+        userName=db_user,
+        passWord=db_password,
+        dataBase=db_name,
+        db_port=db_port,
+        host=db_host,
+        initializeTable=True
+    )
+
+    with Migration(user=db_user, password=db_password, host=db_host, database=db_name, port=db_port, code_version=1) as migrator:
+        migrator.migrate()
 
 
 if __name__ == "__main__":
