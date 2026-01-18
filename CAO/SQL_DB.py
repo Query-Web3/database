@@ -19,14 +19,8 @@ from datetime import timedelta
 import pandas as pd
 
 import math
-# we have one bot database for public 
-# CREATE USER 'queryweb3'@'localhost' IDENTIFIED BY '!SDCsdin2df2@';
-# CREATE DATABASE QUERYWEB3;
-# GRANT ALL PRIVILEGES ON QUERYWEB3.* TO 'queryweb3'@'localhost';
-# FLUSH PRIVILEGES;
-# user name: queryweb3
-# pass:      !SDCsdin2df2@
-# database:  QUERYWEB3
+# we have one bot database for public, create the sql user name and password and 
+# also the database, and save it in the .env file 
 
 # need to: pip install mysql-connector-python
 
@@ -52,9 +46,11 @@ class SQL_DB:
 
             except:
                 self.errorMessage("Please set up user and pass in the configuration file "+db_config+", otherwise, we cannot connect to the DB")
+                return
         else:
             if userName is None or passWord is None:
                 self.errorMessage("If you don't provide the configuration file db_config, you must set up userName and passWord!")
+                return
             else:
                 self.userName = userName
                 self.passWord = passWord
