@@ -1,4 +1,4 @@
-import logging
+from logging_config import logger
 import os
 import glob
 import importlib.util
@@ -82,12 +82,12 @@ class Migration:
                 self.errorMessage("Database does not exist")
             else:
                 self.errorMessage(str(err))
-            logging.error(f"SQL Error: {err}")
+            logger.error(f"SQL Error: {err}")
             raise
         except Exception as err:
             self.conn.rollback()
             self.errorMessage(f"Unexpected error: {str(err)}")
-            logging.error(f"Unexpected error: {err}")
+            logger.error(f"Unexpected error: {err}")
             raise
     
     def get_db_version(self):
@@ -104,7 +104,7 @@ class Migration:
                 return int(result[0][0])
             return 0
         except Exception as err:
-            logging.error(f"Error getting DB version: {err}")
+            logger.error(f"Error getting DB version: {err}")
             return 0
     
     def update_db_version(self, version):
@@ -117,9 +117,9 @@ class Migration:
         try:
             query = "UPDATE db_version SET version = %s WHERE id = (SELECT id FROM (SELECT id FROM db_version ORDER BY id DESC LIMIT 1) AS tmp)"
             self.executeSQL(query, (version,))
-            logging.info(f"Database version updated to {version}")
+            logger.info(f"Database version updated to {version}")
         except Exception as err:
-            logging.error(f"Error updating DB version: {err}")
+            logger.error(f"Error updating DB version: {err}")
             raise
     
     def get_migration_scripts(self):
@@ -142,7 +142,7 @@ class Migration:
                 version = int(version_str)
                 script_versions.append((version, script))
             except ValueError:
-                logging.warning(f"Invalid migration script name: {filename}, skipping")
+                logger.warning(f"Invalid migration script name: {filename}, skipping")
                 continue
         
         # 按版本号排序
@@ -160,7 +160,7 @@ class Migration:
             True if successful, False otherwise
         """
         try:
-            logging.info(f"Executing migration script: {script_path}")
+            logger.info(f"Executing migration script: {script_path}")
             
             # 动态加载并执行migration脚本
             spec = importlib.util.spec_from_file_location("migration_module", script_path)
@@ -173,14 +173,14 @@ class Migration:
             # 如果脚本定义了migrate函数，则调用它
             if hasattr(module, 'migrate'):
                 module.migrate(self.conn)
-                logging.info(f"Successfully executed migration script: {script_path}")
+                logger.info(f"Successfully executed migration script: {script_path}")
                 return True
             else:
-                logging.warning(f"Migration script {script_path} does not define a 'migrate' function")
+                logger.warning(f"Migration script {script_path} does not define a 'migrate' function")
                 return False
                 
         except Exception as err:
-            logging.error(f"Error executing migration script {script_path}: {err}")
+            logger.error(f"Error executing migration script {script_path}: {err}")
             raise
     
     def migrate(self):
@@ -189,17 +189,17 @@ class Migration:
         """
         try:
             db_version = self.get_db_version()
-            logging.info(f"Current DB version: {db_version}, Code version: {self.code_version}")
+            logger.info(f"Current DB version: {db_version}, Code version: {self.code_version}")
             
             if self.code_version <= db_version:
-                logging.info("Database is up to date. No migration needed.")
+                logger.info("Database is up to date. No migration needed.")
                 return
             
             # 获取所有migration脚本
             migration_scripts = self.get_migration_scripts()
             
             if not migration_scripts:
-                logging.warning("No migration scripts found")
+                logger.warning("No migration scripts found")
                 return
             
             # 执行需要执行的migration脚本（版本号大于当前数据库版本）
@@ -217,7 +217,7 @@ class Migration:
                     continue
             
             if not scripts_to_run:
-                logging.info("No migration scripts need to be executed")
+                logger.info("No migration scripts need to be executed")
                 return
             
             # 按版本号排序
@@ -225,18 +225,18 @@ class Migration:
             
             # 顺序执行migration脚本
             for script_version, script_path in scripts_to_run:
-                logging.info(f"Running migration script version {script_version}: {script_path}")
+                logger.info(f"Running migration script version {script_version}: {script_path}")
                 self.execute_migration_script(script_path)
                 # 每执行完一个脚本，更新数据库版本
                 self.update_db_version(script_version)
-                logging.info(f"Migration to version {script_version} completed")
+                logger.info(f"Migration to version {script_version} completed")
             
             # 最终更新到代码版本
             self.update_db_version(self.code_version)
-            logging.info(f"Migration completed. Database version is now {self.code_version}")
+            logger.info(f"Migration completed. Database version is now {self.code_version}")
             
         except Exception as err:
-            logging.error(f"Migration failed: {err}")
+            logger.error(f"Migration failed: {err}")
             raise
     
     def errorMessage(self, message):
@@ -246,8 +246,7 @@ class Migration:
         Args:
             message: 错误消息
         """
-        print(f"Error message: {message}")
-        logging.error(message)
+        logger.error(f"Migration Error: {message}")
     
     def close(self):
         """
@@ -255,7 +254,7 @@ class Migration:
         """
         if self.conn and self.conn.is_connected():
             self.conn.close()
-            logging.info("Database connection closed")
+            logger.info("Database connection closed")
     
     def __enter__(self):
         """支持上下文管理器"""

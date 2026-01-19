@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import mysql.connector
 from mysql.connector import Error as MySQLError
 from dotenv import load_dotenv
+from logging_config import logger
 
 Decimal = decimal.Decimal
 
@@ -144,7 +145,7 @@ class SQL_DB_CombinedTables:
         try:
             hydr_batch = self.latest_batch_id("Hydration_price")
         except Exception as e:
-            print(f"⚠️ Hydration_price batch lookup failed: {e}")
+            logger.warning(f"Hydration_price batch lookup failed: {e}")
             hydr_batch = None
 
         if hydr_batch is not None:
@@ -160,7 +161,7 @@ class SQL_DB_CombinedTables:
                         mp[str(sym).lower()] = price
                 self._latest_price_batch = hydr_batch  # type: ignore[attr-defined]
             except MySQLError as e:
-                print(f"⚠️ Hydration_price read failed for batch {hydr_batch}: {e}")
+                logger.warning(f"Hydration_price read failed for batch {hydr_batch}: {e}")
 
         # 2) Fallback: latest-per-symbol from Bifrost_staking_table
         # (self-join version works on MySQL 5.7+; adds batch_id tie-breaker)
@@ -193,7 +194,7 @@ class SQL_DB_CombinedTables:
                     if k not in mp:
                         mp[k] = price
         except MySQLError as e:
-            print(f"⚠️ Bifrost_staking_table latest-per-symbol read failed: {e}")
+            logger.warning(f"Bifrost_staking_table latest-per-symbol read failed: {e}")
 
         return mp
 
@@ -299,7 +300,7 @@ class SQL_DB_CombinedTables:
                 """
             )
         except MySQLError as e:
-            print(f"⚠️ Bifrost_site_table latest-per-asset read failed: {e}")
+            logger.warning(f"Bifrost_site_table latest-per-asset read failed: {e}")
             return []
 
         out: List[Dict[str, Any]] = []
@@ -376,15 +377,15 @@ class SQL_DB_CombinedTables:
         rows.extend(self.rows_from_bifrost_site_latest(price_map))
 
         inserted = self.insert_full_rows(rows)
-        print(f"✅ Inserted {inserted} row(s) into full_table from latest sources.")
+        logger.info(f"Inserted {inserted} row(s) into full_table from latest sources.")
         if hydration_batch is not None:
-            print(f"  - hydration_data batch_id = {hydration_batch}")
+            logger.info(f"  - hydration_data batch_id = {hydration_batch}")
         if pool_batch is not None:
-            print(f"  - pool_data batch_id      = {pool_batch}")
-        print("  - bifrost source          = Bifrost_site_table (latest-per-asset, APY)")
+            logger.info(f"  - pool_data batch_id      = {pool_batch}")
+        logger.info("  - bifrost source          = Bifrost_site_table (latest-per-asset, APY)")
         if price_batch is not None:
-            print(f"  - Hydration_price batch_id = {price_batch} (prices primary)")
-        print("  - Bifrost_staking_table used as price fallback (latest per symbol)")
+            logger.info(f"  - Hydration_price batch_id = {price_batch} (prices primary)")
+        logger.info("  - Bifrost_staking_table used as price fallback (latest per symbol)")
 
 def main() -> None:
     load_dotenv()

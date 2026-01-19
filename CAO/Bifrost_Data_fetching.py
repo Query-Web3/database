@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from SQL_DB import SQL_DB
 import numpy as np
+from logging_config import logger
 
 def fetch_data():
     # Fetching data from the API
@@ -32,7 +33,7 @@ def fetch_data():
 
         return df 
     else:
-        print(f"Failed to fetch data. Status code: {response.status_code}")
+        logger.error(f"Failed to fetch data from site API. Status code: {response.status_code}")
 
 def fetch_data2():
     # fetching data from staking API 
@@ -73,7 +74,7 @@ def fetch_data2():
 
         #print(f"Data successfully processed and saved to {processed_data}")
     else:
-        print(f"Failed to fetch data. Status code: {response.status_code}")    
+        logger.error(f"Failed to fetch data from staking API. Status code: {response.status_code}")
 
 def sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
     if df is None:
@@ -116,17 +117,17 @@ def main():
     sqlDB = SQL_DB(userName = db_user, passWord = db_password, dataBase = db_name, host=db_host, port = db_port, initializeTable=True)  # connect to the database
 
     while True:
-        print("\nFetching data...")
+        logger.info("Fetching data...")
         try:
             data_frames1 = fetch_data()
-        except:
-            print("Warning, fetching site API error, try again later")
+        except Exception as e:
+            logger.warning(f"Warning, fetching site API error, try again later: {e}")
             continue
         
         try:
             data_frames2 = fetch_data2()
-        except:
-            print("Warning, fetching staking API error, try again later")
+        except Exception as e:
+            logger.warning(f"Warning, fetching staking API error, try again later: {e}")
             continue 
         
         # print(data_frames1)
@@ -141,7 +142,7 @@ def main():
 
         sqlDB.update_bifrost_database(df1,df2,batch_id)
 
-        print("\nSleeping for 1 hour...")
+        logger.info("Sleeping for 1 hour...")
         time.sleep(3600)
 
 if __name__ == "__main__":

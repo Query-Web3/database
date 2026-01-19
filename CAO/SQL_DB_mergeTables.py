@@ -2,7 +2,7 @@
 # SQL_DB_mergeTables.py
 import mysql.connector
 from mysql.connector import errorcode
-import logging
+from logging_config import logger
 import pandas as pd
 import numpy as np
 import json
@@ -108,7 +108,7 @@ class SQL_DB_MergeTables:
 
     # ---------- DB helpers ----------
     def errorMessage(self, message):
-        print("error message: " + message)
+        logger.error(f"SQL Error: {message}")
 
     def _connect(self):
         return mysql.connector.connect(
@@ -144,7 +144,7 @@ class SQL_DB_MergeTables:
                 self.errorMessage(str(err))
             raise
         except Exception as err:
-            logging.error(err)
+            logger.exception(err)
             raise
 
     def fetch_df(self, query, params=None) -> pd.DataFrame:
@@ -162,7 +162,7 @@ class SQL_DB_MergeTables:
             cnx.close()
             return df
         except Exception as err:
-            logging.error(err)
+            logger.exception(err)
             raise
 
     def fetch_one(self, query, params=None):
@@ -440,7 +440,7 @@ class SQL_DB_MergeTables:
 
         payload_obj = self._deep_clean(payload_obj)
         self.insert_combined_payload(payload_obj)
-        print("✅ Inserted new combined snapshot into multipleFACT (append-only).")
+        logger.info("Inserted new combined snapshot into multipleFACT (append-only).")
 
 
 if __name__ == "__main__":

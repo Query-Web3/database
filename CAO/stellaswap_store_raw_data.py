@@ -5,7 +5,8 @@ import pandas as pd
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from SQL_DB_stella import SQL_DB_Stella  # Import from new module
+from SQL_DB_stella import SQL_DB_Stella
+from logging_config import logger
 
 # Load environment variables from .env file
 load_dotenv()
@@ -41,13 +42,13 @@ def fetch_pools_apr():
             if data.get("isSuccess") and "result" in data:
                 return data["result"]
             else:
-                print("Pools APR API response missing expected data.")
+                logger.warning("Pools APR API response missing expected data.")
                 return {}
         else:
-            print(f"Pools APR API request failed with status code {response.status_code}: {response.text}")
+            logger.error(f"Pools APR API request failed with status code {response.status_code}: {response.text}")
             return {}
     except Exception as e:
-        print(f"Error fetching Pools APR data: {e}")
+        logger.error(f"Error fetching Pools APR data: {e}")
         return {}
 
 # Function to fetch Farming APR data
@@ -59,13 +60,13 @@ def fetch_farming_apr():
             if data.get("code") == 200 and "result" in data and "pools" in data["result"]:
                 return data["result"]["pools"]
             else:
-                print("Farming APR API response missing expected data.")
+                logger.warning("Farming APR API response missing expected data.")
                 return {}
         else:
-            print(f"Farming APR API request failed with status code {response.status_code}: {response.text}")
+            logger.error(f"Farming APR API request failed with status code {response.status_code}: {response.text}")
             return {}
     except Exception as e:
-        print(f"Error fetching Farming APR data: {e}")
+        logger.error(f"Error fetching Farming APR data: {e}")
         return {}
 
 # Function to fetch pool data with 24h volume
@@ -111,10 +112,10 @@ def fetch_pool_data(timestamp_23h_ago, timestamp_25h_ago):
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"Query failed with status code {response.status_code}: {response.text}")
+            logger.error(f"Query failed with status code {response.status_code}: {response.text}")
             return None
     except Exception as e:
-        print(f"Error fetching pool data: {e}")
+        logger.error(f"Error fetching pool data: {e}")
         return None
 
 # Function to fetch position data and calculate token amounts
@@ -149,13 +150,13 @@ def fetch_token_amounts(pool_id):
     response = requests.post(graph_url, json={'query': query}, headers=headers)
     
     if response.status_code != 200:
-        print(f"Token amount query failed for pool {pool_id}: {response.status_code}")
+        logger.error(f"Token amount query failed for pool {pool_id}: {response.status_code}")
         return 0, 0
     
     data = response.json()
     positions = data.get('data', {}).get('positions', [])
     if not positions:
-        print(f"No active positions found for pool: {pool_id}")
+        logger.warning(f"No active positions found for pool: {pool_id}")
         return 0, 0
     
     pool = positions[0]["pool"]
@@ -195,7 +196,7 @@ def calculate_token_amounts(liquidity, sqrt_price_current, sqrt_price_low, sqrt_
 # Function to process the fetched data
 def process_data(data, pools_apr_data, farming_apr_data):
     if not data or 'data' not in data or 'pools' not in data['data']:
-        print("No valid data to process.")
+        logger.warning("No valid data to process.")
         return []
     
     processed_data = []
@@ -268,7 +269,7 @@ def main():
     
     try:
         while True:
-            print("\nFetching data...")
+            logger.info("Fetching data...")
             current_timestamp = int(datetime.utcnow().timestamp())
             timestamp_23h_ago = current_timestamp - (23 * 60 * 60)
             timestamp_25h_ago = current_timestamp - (25 * 60 * 60)
@@ -283,21 +284,15 @@ def main():
                 processed_data = process_data(raw_data, pools_apr_data, farming_apr_data)
                 
                 for pool in processed_data:
-                    print(f"Pool {pool['pool_id']}:")
-                    print(f"  Token0: {pool['token0_symbol']} - {pool['amount_token0']:.6f}")
-                    print(f"  Token1: {pool['token1_symbol']} - {pool['amount_token1']:.6f}")
-                    print(f"  24h Fees USD: {pool['fees_usd_24h']}")
-                    print(f"  24h Volume USD: {pool['volume_usd_24h']}")
-                    print(f"  Final APR: {pool['final_apr']}%")
-                    print("---")
+                    logger.info(f"Pool {pool['pool_id']}: Token0: {pool['token0_symbol']} - {pool['amount_token0']:.6f}, Token1: {pool['token1_symbol']} - {pool['amount_token1']:.6f}, 24h Vol: {pool['volume_usd_24h']}, APR: {pool['final_apr']}%")
                 
                 sql_db.update_pool_database(processed_data, batch_id)
             
-            print("\nSleeping for 1 hour...")
+            logger.info("Sleeping for 1 hour...")
             time.sleep(3600)
     
     except Exception as e:
-        print(f"Error occurred: {e}")
+        logger.exception(f"Error occurred in main loop: {e}")
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,7 @@
 # SQL_DB_stella.py
 import mysql.connector
 from mysql.connector import errorcode
-import logging
+from logging_config import logger
 import pandas as pd
 
 class SQL_DB_Stella:
@@ -52,7 +52,7 @@ class SQL_DB_Stella:
         self.executeSQL(sql_command)
 
     def errorMessage(self, message):
-        print("error message: " + message)
+        logger.error(f"SQL Error: {message}")
 
     def executeSQL(self, query, params=None):
         try:
@@ -85,12 +85,12 @@ class SQL_DB_Stella:
                 self.errorMessage(str(err))
             raise
         except Exception as err:
-            logging.error(err)
+            logger.exception(f"Unexpected error in executeSQL: {err}")
             raise
 
     def update_pool_database(self, processed_data, batch_id):
         if not processed_data:
-            print("No data to store in the database.")
+            logger.warning("No data to store in the database (Stella).")
             return
         
         df = pd.DataFrame(processed_data)
@@ -116,4 +116,4 @@ class SQL_DB_Stella:
             """
             self.executeSQL(query)
         
-        print(f"Pool data stored in MySQL database with batch_id {batch_id}")
+        logger.info(f"Pool data stored in MySQL database with batch_id {batch_id}")
