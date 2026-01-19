@@ -106,12 +106,15 @@ def fetch_pool_data(timestamp_23h_ago, timestamp_25h_ago):
     }}
     """
     headers = {"Content-Type": "application/json"}
-    response = requests.post(graph_url, json={'query': query}, headers=headers)
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Query failed with status code {response.status_code}: {response.text}")
+    try:
+        response = requests.post(graph_url, json={'query': query}, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"Query failed with status code {response.status_code}: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error fetching pool data: {e}")
         return None
 
 # Function to fetch position data and calculate token amounts

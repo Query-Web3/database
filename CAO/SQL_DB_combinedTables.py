@@ -141,7 +141,12 @@ class SQL_DB_CombinedTables:
         mp: Dict[str, Decimal] = {}
 
         # 1) Primary: Hydration_price (latest batch)
-        hydr_batch = self.latest_batch_id("Hydration_price")
+        try:
+            hydr_batch = self.latest_batch_id("Hydration_price")
+        except Exception as e:
+            print(f"⚠️ Hydration_price batch lookup failed: {e}")
+            hydr_batch = None
+
         if hydr_batch is not None:
             try:
                 rows = self.execute(
