@@ -5,6 +5,7 @@ import os
 import time
 from dotenv import load_dotenv
 from SQL_DB_hydration_price import SQL_DB_Hydration_Price
+from logging_config import logger
 
 # Load environment variables
 load_dotenv()
@@ -26,10 +27,10 @@ def load_assets():
         df = pd.read_csv("allAssets.csv")
         return df[df['ID'] < 30][['ID', 'Symbol']].to_dict('records')
     except FileNotFoundError:
-        print("Error: allAssets.csv not found.")
+        logger.error("allAssets.csv not found.")
         return []
     except Exception as e:
-        print(f"Error loading assets: {e}")
+        logger.error(f"Error loading assets: {e}")
         return []
 
 # Fetch batch prices for assets 0 to 30
@@ -46,25 +47,23 @@ def fetch_batch_prices():
         stdout = (result.stdout or "").strip()
         stderr = (result.stderr or "").strip()
         if not stdout:
-            print("Error: getBatchPrice.ts produced no stdout.")
+            logger.error("getBatchPrice.ts produced no stdout.")
             return {}
         else:
-            print("now let me price the output first")
-            print(stdout)        
-            print("over")
-        print("after running npx tsx fetch price ...")
+            logger.debug(f"Raw script output: {stdout}")
+        
         data = json.loads(stdout)
-        print("load the json correctly?")
+        logger.debug("Successfully loaded price JSON.")
         if 'error' in data:
-            print(f"Error fetching batch prices: {data['error']}")
+            logger.error(f"Error fetching batch prices: {data['error']}")
             return {}
         # Convert to dict {asset_id: price}
         return {item['assetId']: item['price'] for item in data}
     except subprocess.CalledProcessError as e:
-        print(f"Error running getBatchPrice.ts: {e.stderr}")
+        logger.error(f"Error running getBatchPrice.ts: {e.stderr}")
         return {}
     except Exception as e:
-        print(f"Error fetching batch prices: {e}")
+        logger.error(f"Error fetching batch prices: {e}")
         return {}
 
 # Process assets and match prices
@@ -84,7 +83,7 @@ def process_prices(assets, price_data):
         }
         processed_data.append(asset_data)
         
-        print(f"Asset {asset_id} ({symbol}): Price = {price_usdt} USDT")
+        logger.info(f"Asset {asset_id} ({symbol}): Price = {price_usdt} USDT")
     
     return processed_data
 
@@ -101,29 +100,29 @@ def main():
     
     try:
         while True:
-            print("\nFetching asset prices...")
+            logger.info("Fetching asset prices...")
             
             assets = load_assets()
             if not assets:
-                print("No assets to process. Retrying in 30 minutes...")
+                logger.warning("No assets to process. Retrying in 30 minutes...")
                 time.sleep(1800)  # 30 minutes
                 continue
             
             batch_id = int(time.time())
             price_data = fetch_batch_prices()
             if not price_data:
-                print("Failed to fetch batch prices. Retrying in 30 minutes...")
+                logger.error("Failed to fetch batch prices. Retrying in 30 minutes...")
                 time.sleep(1800)
                 continue
             
             processed_data = process_prices(assets, price_data)
             sql_db.update_hydration_prices(processed_data, batch_id)
             
-            print("\nSleeping for 10 minutes...")
+            logger.info("Sleeping for 10 minutes...")
             time.sleep(600)  # 10 minutes = 600 seconds
     
     except Exception as e:
-        print(f"Error occurred: {e}")
+        logger.exception(f"Error occurred in fetch_asset_prices main loop: {e}")
 
 if __name__ == "__main__":
     main()

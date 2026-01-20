@@ -1,7 +1,7 @@
 # SQL_DB_hydration.py
 import mysql.connector
 from mysql.connector import errorcode
-import logging
+from logging_config import logger
 import pandas as pd
 
 class SQL_DB_Hydration:
@@ -34,7 +34,7 @@ class SQL_DB_Hydration:
         self.executeSQL(sql_command)
 
     def errorMessage(self, message):
-        print("error message: " + message)
+        logger.error(f"SQL Error: {message}")
 
     def executeSQL(self, query, params=None):
         try:
@@ -67,12 +67,12 @@ class SQL_DB_Hydration:
                 self.errorMessage(str(err))
             raise
         except Exception as err:
-            logging.error(err)
+            logger.exception(f"Unexpected error in executeSQL: {err}")
             raise
 
     def update_hydration_database(self, processed_data, batch_id):
         if not processed_data:
-            print("No data to store in the database.")
+            logger.warning("No data to store in the database (Hydration).")
             return
         
         df = pd.DataFrame(processed_data)
@@ -95,4 +95,4 @@ class SQL_DB_Hydration:
             """
             self.executeSQL(query)
         
-        print(f"Hydration data stored in MySQL database with batch_id {batch_id}")
+        logger.info(f"Hydration data stored in MySQL database with batch_id {batch_id}")

@@ -17,8 +17,8 @@ import json
 import datetime
 from datetime import timedelta
 import pandas as pd
-
 import math
+from logging_config import logger
 # we have one bot database for public, create the sql user name and password and 
 # also the database, and save it in the .env file 
 
@@ -156,7 +156,7 @@ class SQL_DB:
             self.executeSQL(sql_command)
 
     def errorMessage(self,message):
-        print("error message:" , message)
+        logger.error(f"SQL Error: {message}")
 
 
     def executeSQL(self, query,params=None):
@@ -190,8 +190,8 @@ class SQL_DB:
                 self.errorMessage("Database does not exist")
             else:
                 self.errorMessage(err)
-        except mysql.connector.Error as err:
-            logging.error(err)
+        except Exception as err:
+            logger.exception(f"Unexpected error in executeSQL: {err}")
 
 
     def update_bifrost_database(self, df1, df2, batch_id):
@@ -262,4 +262,4 @@ class SQL_DB:
         query3 = f"INSERT INTO {table3} (batch_id, chain, status) VALUES (%s, %s, %s)"
         self.executeSQL(query3, (batch_id, "Bifrost", "F"))
 
-        print(f"Records successfully updated for batch_id {batch_id}.")
+        logger.info(f"Records successfully updated for batch_id {batch_id}.")
