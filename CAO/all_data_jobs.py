@@ -138,11 +138,11 @@ def initialize_tables():
     )
 
     SQL_DB(
-        userName = db_user, 
-        passWord = db_password, 
-        dataBase = db_name, 
+        userName=db_user, 
+        passWord=db_password, 
+        dataBase=db_name, 
         host=db_host, 
-        port = db_port, 
+        port=db_port, 
         initializeTable=True
     )
 

@@ -9,7 +9,7 @@ This project uses a comprehensive test suite built with `pytest` to ensure the r
   ```bash
   pip install pytest pytest-cov
   ```
-- Other project dependencies (pandas, numpy, requests, mysql-connector-python, python-dotenv)
+- Other project dependencies (pandas, numpy, requests, mysql-connector-python, dotenv)
 
 ## Running the Tests
 

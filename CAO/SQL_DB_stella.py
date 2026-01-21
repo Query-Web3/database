@@ -5,7 +5,7 @@ from logging_config import logger
 import pandas as pd
 
 class SQL_DB_Stella:
-    def __init__(self, userName, passWord, dataBase, host, db_port=3306, initializeTable=False):
+    def __init__(self, userName, passWord, dataBase, host, db_port, initializeTable=False):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase
