@@ -6,6 +6,7 @@ import time
 from dotenv import load_dotenv
 from SQL_DB_hydration_price import SQL_DB_Hydration_Price
 from logging_config import logger
+from utils import retry
 
 # Load environment variables
 load_dotenv()
@@ -34,6 +35,7 @@ def load_assets():
         return []
 
 # Fetch batch prices for assets 0 to 30
+@retry(max_retries=3, delay=5)
 def fetch_batch_prices():
     script_path = "hy/script/getBatchPrice2.ts"
     try:
@@ -41,7 +43,8 @@ def fetch_batch_prices():
             ["tsx", script_path],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            timeout=120  # Add 2 minute timeout
         )
         # check before we process the output 
         stdout = (result.stdout or "").strip()
@@ -61,10 +64,13 @@ def fetch_batch_prices():
         return {item['assetId']: item['price'] for item in data}
     except subprocess.CalledProcessError as e:
         logger.error(f"Error running getBatchPrice.ts: {e.stderr}")
-        return {}
+        raise # Raise to trigger retry
+    except subprocess.TimeoutExpired as e:
+        logger.error(f"Timeout running getBatchPrice.ts: {e}")
+        raise # Raise to trigger retry
     except Exception as e:
         logger.error(f"Error fetching batch prices: {e}")
-        return {}
+        raise # Raise to trigger retry
 
 # Process assets and match prices
 def process_prices(assets, price_data):

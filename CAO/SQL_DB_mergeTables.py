@@ -11,7 +11,7 @@ import decimal
 import math
 import os
 from dotenv import load_dotenv
-
+from utils import retry
 
 class SQL_DB_MergeTables:
     """
@@ -110,6 +110,7 @@ class SQL_DB_MergeTables:
     def errorMessage(self, message):
         logger.error(f"SQL Error: {message}")
 
+    @retry(max_retries=3, delay=2)
     def _connect(self):
         return mysql.connector.connect(
             user=self.userName,
@@ -119,6 +120,7 @@ class SQL_DB_MergeTables:
             port=self.port
         )
 
+    @retry(max_retries=3, delay=2)
     def executeSQL(self, query, params=None):
         try:
             cnx = self._connect()
@@ -147,6 +149,7 @@ class SQL_DB_MergeTables:
             logger.exception(err)
             raise
 
+    @retry(max_retries=3, delay=2)
     def fetch_df(self, query, params=None) -> pd.DataFrame:
         try:
             cnx = self._connect()
@@ -165,6 +168,7 @@ class SQL_DB_MergeTables:
             logger.exception(err)
             raise
 
+    @retry(max_retries=3, delay=2)
     def fetch_one(self, query, params=None):
         cnx = self._connect()
         cur = cnx.cursor()
