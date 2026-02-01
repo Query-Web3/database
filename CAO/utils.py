@@ -2,8 +2,6 @@ import time
 import functools
 import shutil
 import mysql.connector
-from logger_config import logger # Assuming logger_config is where logger is, double check import
-# Wait, previous file view showed 'from logging_config import logger'
 from logging_config import logger
 
 def retry(max_retries=3, delay=2, backoff=2, exceptions=(Exception,)):

@@ -11,7 +11,9 @@ from db_migration.migration import Migration
 from SQL_DB_stella import SQL_DB_Stella
 from SQL_DB import SQL_DB
 from SQL_DB_hydration import SQL_DB_Hydration
+from SQL_DB_hydration import SQL_DB_Hydration
 from SQL_DB_hydration_price import SQL_DB_Hydration_Price
+from utils import HealthMonitor
 
 # Base directory where all the scripts live
 BASE_DIR = Path(__file__).resolve().parent
@@ -74,6 +76,19 @@ def main():
     try:
         while True:
             now = time.time()
+            
+            # 1. Health Checks
+            # Reload env/config if needed, but here we just use what we have
+            db_config = {
+                'user': os.getenv("DB_USERNAME"),
+                'password': os.getenv("DB_PASSWORD"),
+                'database': os.getenv("DB_NAME"),
+                'port':  os.getenv("DB_PORT",3306),
+                'host': os.getenv("DB_HOST", "127.0.0.1")
+            }
+            if not HealthMonitor.check_db_connection(db_config):
+                logger.error("Health Check Failed: Database unreachable!")
+                # Optional: Alert mechanism here
 
             # Optional: check if any fetch process died
             for p in processes:
