@@ -27,6 +27,28 @@ class SQL_DB_Hydration_Price:
         """
         self.executeSQL(sql_command)
 
+        sql_command_batch = """
+        CREATE TABLE IF NOT EXISTS Hydration_price_batches (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            batch_id INT NOT NULL,
+            data_hash VARCHAR(64),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        self.executeSQL(sql_command_batch)
+        
+        self.executeSQL(sql_command_batch)
+        
+        # Ensure hash column exists (idempotent check)
+        check_col_sql = """
+        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'Hydration_price_batches' AND COLUMN_NAME = 'data_hash'
+        """
+        res = self.executeSQL(check_col_sql, (self.dataBase,))
+        if res and res[0][0] == 0:
+            self.executeSQL("ALTER TABLE Hydration_price_batches ADD COLUMN data_hash VARCHAR(64);")
+            logger.info("Added 'data_hash' column to Hydration_price_batches")
+
     def errorMessage(self, message):
         logger.error(f"SQL Error: {message}")
 
@@ -64,7 +86,15 @@ class SQL_DB_Hydration_Price:
             logger.exception(f"Unexpected error in executeSQL: {err}")
             raise
 
-    def update_hydration_prices(self, processed_data, batch_id):
+    def get_last_price_hash(self):
+        """Fetches the data_hash of the most recent price batch."""
+        query = "SELECT data_hash FROM Hydration_price_batches ORDER BY id DESC LIMIT 1"
+        result = self.executeSQL(query)
+        if result and result[0][0]:
+            return result[0][0]
+        return None
+
+    def update_hydration_prices(self, processed_data, batch_id, data_hash=None):
         if not processed_data:
             logger.warning("No data to store in Hydration_price table.")
             return
@@ -88,4 +118,11 @@ class SQL_DB_Hydration_Price:
             """
             self.executeSQL(query)
         
+        # Track batch
+        if data_hash:
+            self.executeSQL(
+                "INSERT INTO Hydration_price_batches (batch_id, data_hash) VALUES (%s, %s)",
+                (batch_id, data_hash)
+            )
+
         logger.info(f"Hydration prices stored in MySQL with batch_id {batch_id}")

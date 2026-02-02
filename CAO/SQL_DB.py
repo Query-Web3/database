@@ -149,9 +149,23 @@ class SQL_DB:
             batch_id INT NOT NULL,
             chain VARCHAR(25),
             status VARCHAR(10),
+            data_hash VARCHAR(64),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
+            # create Bifrost staking table
+            self.executeSQL(sql_command)
+            
+            # Ensure hash column exists (idempotent check)
+            check_col_sql = """
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'Bifrost_batchID_table' AND COLUMN_NAME = 'data_hash'
+            """
+            res = self.executeSQL(check_col_sql, (self.dataBase,))
+            if res and res[0][0] == 0:
+                self.executeSQL("ALTER TABLE Bifrost_batchID_table ADD COLUMN data_hash VARCHAR(64);")
+                logger.info("Added 'data_hash' column to Bifrost_batchID_table")
+
             # create Bifrost staking table
             self.executeSQL(sql_command)
 
@@ -194,7 +208,7 @@ class SQL_DB:
             logger.exception(f"Unexpected error in executeSQL: {err}")
 
 
-    def update_bifrost_database(self, df1, df2, batch_id):
+    def update_bifrost_database(self, df1, df2, batch_id, data_hash=None):
         """
         Updates the database with the records from two dataframes using the same batch_id.
         
@@ -203,6 +217,7 @@ class SQL_DB:
         - df2: The second dataframe containing specific asset data.
         - df3: The bifrost batch ID table
         - batch_id: A unique ID for this batch of data insertion.
+        - data_hash: SHA256 hash of the data content for deduplication.
         """
         # Define the table names
         table1 = "Bifrost_site_table"
@@ -259,7 +274,15 @@ class SQL_DB:
                 self.executeSQL(query2, params)
 
         # ============= INSERT batch_id into Bifrost_batchID_table =====
-        query3 = f"INSERT INTO {table3} (batch_id, chain, status) VALUES (%s, %s, %s)"
-        self.executeSQL(query3, (batch_id, "Bifrost", "F"))
+        query3 = f"INSERT INTO {table3} (batch_id, chain, status, data_hash) VALUES (%s, %s, %s, %s)"
+        self.executeSQL(query3, (batch_id, "Bifrost", "F", data_hash))
 
         logger.info(f"Records successfully updated for batch_id {batch_id}.")
+
+    def get_last_bifrost_hash(self):
+        """Fetches the data_hash of the most recent Bifrost batch."""
+        query = "SELECT data_hash FROM Bifrost_batchID_table ORDER BY id DESC LIMIT 1"
+        result = self.executeSQL(query)
+        if result and result[0][0]:
+            return result[0][0]
+        return None

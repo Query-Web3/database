@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from SQL_DB import SQL_DB
 import numpy as np
 from logging_config import logger
+from utils import generate_batch_id, DataValidator
 
 def fetch_data():
     # Fetching data from the API
@@ -135,12 +136,22 @@ def main():
         # print("+++++++++++++")
         # print(data_frames2)
 
-        batch_id = int(time.time())  # Current timestamp in seconds
-
         df1 =  sanitize_df(data_frames1)
         df2 =  sanitize_df(data_frames2)
 
-        sqlDB.update_bifrost_database(df1,df2,batch_id)
+        # Compute hash for deduplication
+        data_to_hash = {
+            "df1": df1.to_dict('records') if df1 is not None else [],
+            "df2": df2.to_dict('records') if df2 is not None else []
+        }
+        current_hash = DataValidator.compute_hash(data_to_hash)
+        last_hash = sqlDB.get_last_bifrost_hash()
+        
+        if current_hash and current_hash == last_hash:
+            logger.info("Duplicate data detected (hash matches last batch). Skipping DB update.")
+        else:
+            batch_id = generate_batch_id()
+            sqlDB.update_bifrost_database(df1, df2, batch_id, data_hash=current_hash)
 
         logger.info("Sleeping for 1 hour...")
         time.sleep(3600)

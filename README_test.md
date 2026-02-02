@@ -34,6 +34,7 @@ The current project documentation and logic achievement is **81% total coverage*
 The tests are located in the `tests/` directory and follow a modular structure:
 
 - `test_sql_db.py`: Core database connection and base execution logic.
+- `test_data_quality.py`: Unit tests for data validation, hashing utilities, and batch ID generation.
 - `test_health_checks.py`: Verification of system health monitoring utilities (DB connection, process status, disk space).
 - `test_error_handling.py`: Tests for the retry decorator and common error handling logic.
 - `test_bifrost_fetching.py`: Bifrost API response parsing and sanitization.

@@ -1,3 +1,5 @@
+import hashlib
+import json
 import time
 import functools
 import shutil
@@ -91,3 +93,64 @@ class HealthMonitor:
         except Exception as e:
             logger.error(f"Health Check - Disk Space Check Failed: {e}")
             return False
+
+def generate_batch_id():
+    """Generates a monotonic batch ID (integer timestamp)."""
+    return int(time.time())
+
+class DataValidator:
+    @staticmethod
+    def compute_hash(data):
+        """Computes SHA256 hash of data (dict or list)."""
+        try:
+            # Sort keys for consistent hashing
+            s = json.dumps(data, sort_keys=True, default=str)
+            return hashlib.sha256(s.encode('utf-8')).hexdigest()
+        except Exception as e:
+            logger.error(f"Error computing hash: {e}")
+            return None
+
+    @staticmethod
+    def validate_struct(data, expected_keys):
+        """
+        Validates that a list of dicts contains expected keys.
+        Args:
+            data (list): List of dictionaries.
+            expected_keys (set/list): Keys that must be present.
+        Returns:
+            bool: True if valid.
+        """
+        if not isinstance(data, list):
+            return False
+        if not data:
+            return True # Empty list is structurally valid? Or invalid? Let's say valid but empty.
+        
+        required = set(expected_keys)
+        for item in data:
+            if not isinstance(item, dict):
+                return False
+            if not required.issubset(item.keys()):
+                missing = required - set(item.keys())
+                logger.warning(f"Validation failed. Missing keys: {missing}")
+                return False
+        return True
+
+    @staticmethod
+    def validate_positive_floats(data, keys_to_check):
+        """
+        Checks if specified keys in list of dicts have positive float values.
+        """
+        for item in data:
+            for k in keys_to_check:
+                val = item.get(k)
+                try:
+                    fval = float(val)
+                    if fval < 0:
+                        logger.warning(f"Validation failed. Negative value for {k}: {fval}")
+                        return False
+                except (ValueError, TypeError):
+                    # pass or fail? Let's fail if it's supposed to be a float
+                    if val is not None: 
+                        logger.warning(f"Validation failed. Non-numeric value for {k}: {val}")
+                        return False
+        return True

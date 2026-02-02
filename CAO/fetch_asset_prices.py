@@ -6,7 +6,7 @@ import time
 from dotenv import load_dotenv
 from SQL_DB_hydration_price import SQL_DB_Hydration_Price
 from logging_config import logger
-from utils import retry
+from utils import retry, generate_batch_id, DataValidator
 
 # Load environment variables
 load_dotenv()
@@ -40,7 +40,7 @@ def fetch_batch_prices():
     script_path = "hy/script/getBatchPrice2.ts"
     try:
         result = subprocess.run(
-            ["tsx", script_path],
+            ["npx", "tsx", script_path],
             capture_output=True,
             text=True,
             check=True,
@@ -114,7 +114,10 @@ def main():
                 time.sleep(1800)  # 30 minutes
                 continue
             
-            batch_id = int(time.time())
+                time.sleep(1800)  # 30 minutes
+                continue
+            
+            # batch_id = int(time.time()) # Moved generation to after deduplication check
             price_data = fetch_batch_prices()
             if not price_data:
                 logger.error("Failed to fetch batch prices. Retrying in 30 minutes...")
@@ -122,7 +125,26 @@ def main():
                 continue
             
             processed_data = process_prices(assets, price_data)
-            sql_db.update_hydration_prices(processed_data, batch_id)
+
+            # --- Validation ---
+            if not DataValidator.validate_struct(processed_data, {'asset_id', 'symbol', 'price_usdt'}):
+                logger.error("Data validation failed (structure). Skipping batch.")
+                time.sleep(1800)
+                continue
+            if not DataValidator.validate_positive_floats(processed_data, {'price_usdt'}):
+                logger.error("Data validation failed (negative prices). Skipping batch.")
+                time.sleep(1800)
+                continue
+
+            # --- Deduplication ---
+            current_hash = DataValidator.compute_hash(processed_data)
+            last_hash = sql_db.get_last_price_hash()
+
+            if current_hash and current_hash == last_hash:
+                logger.info("Duplicate price data detected. Skipping DB update.")
+            else:
+                batch_id = generate_batch_id()
+                sql_db.update_hydration_prices(processed_data, batch_id, data_hash=current_hash)
             
             logger.info("Sleeping for 10 minutes...")
             time.sleep(600)  # 10 minutes = 600 seconds
