@@ -21,13 +21,13 @@ import Hydration_Data_fetching
 class TestMasterExtra(unittest.TestCase):
     @patch('all_data_jobs.subprocess.Popen')
     def test_start_scripts(self, mock_popen):
-        procs = all_data_jobs.start_long_running_scripts()
+        procs = all_data_jobs.JobOrchestrator().start_long_running_scripts()
         self.assertEqual(len(procs), 3)
 
     @patch('all_data_jobs.subprocess.run')
     def test_run_merge_script_error(self, mock_run):
         mock_run.side_effect = subprocess.CalledProcessError(1, 'cmd')
-        all_data_jobs.run_merge_script()
+        all_data_jobs.JobOrchestrator().run_merge_script()
 
     @patch('stellaswap_store_raw_data.requests.post')
     def test_fetch_pool_data_fail(self, mock_post):

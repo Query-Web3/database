@@ -51,6 +51,7 @@ class JobOrchestrator:
             logger.info(f"Starting: {' '.join(cmd)}")
             p = subprocess.Popen(cmd, cwd=str(BASE_DIR))
             self.processes.append(p)
+        return self.processes
 
     def run_merge_script(self):
         """

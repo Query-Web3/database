@@ -344,7 +344,7 @@ class TestPayloadInsertion(unittest.TestCase):
             'hydration_data': [{'symbol': 'HDX', 'apr': 10.0}]
         }
         
-        db.insert_combined_payload(payload)
+        db.insert_combined_payload(payload, "dummy_hash")
         
         # Should have executed INSERT
         self.assertTrue(mock_cursor.execute.called)
