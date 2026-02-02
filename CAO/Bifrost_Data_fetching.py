@@ -104,18 +104,24 @@ def sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-def main():
+def run_pipeline(db_config=None, single_run=False):
     # Load environment variables from .env file (if present)
     load_dotenv()
 
-    db_user = os.getenv("DB_USERNAME")
-    db_password = os.getenv("DB_PASSWORD")
-    db_name = os.getenv("DB_NAME")
-    db_port = os.getenv("DB_PORT",3306)
-    db_host = os.getenv("DB_HOST", "127.0.0.1")
-    init_tables = "1"
+    if db_config:
+        db_user = db_config.get('user')
+        db_password = db_config.get('password')
+        db_name = db_config.get('database')
+        db_port = db_config.get('port', 3306)
+        db_host = db_config.get('host', '127.0.0.1')
+    else:
+        db_user = os.getenv("DB_USERNAME")
+        db_password = os.getenv("DB_PASSWORD")
+        db_name = os.getenv("DB_NAME")
+        db_port = int(os.getenv("DB_PORT",3306))
+        db_host = os.getenv("DB_HOST", "127.0.0.1")
     
-    sqlDB = SQL_DB(userName = db_user, passWord = db_password, dataBase = db_name, host=db_host, port = db_port, initializeTable=True)  # connect to the database
+    sqlDB = SQL_DB(db_config=db_config, userName = db_user, passWord = db_password, dataBase = db_name, host=db_host, port = db_port, initializeTable=True)  # connect to the database
 
     while True:
         logger.info("Fetching data...")
@@ -123,19 +129,16 @@ def main():
             data_frames1 = fetch_data()
         except Exception as e:
             logger.warning(f"Warning, fetching site API error, try again later: {e}")
+            if single_run: return # Exit on error if single run
             continue
         
         try:
             data_frames2 = fetch_data2()
         except Exception as e:
             logger.warning(f"Warning, fetching staking API error, try again later: {e}")
+            if single_run: return # Exit on error if single run
             continue 
         
-        # print(data_frames1)
-
-        # print("+++++++++++++")
-        # print(data_frames2)
-
         df1 =  sanitize_df(data_frames1)
         df2 =  sanitize_df(data_frames2)
 
@@ -153,8 +156,12 @@ def main():
             batch_id = generate_batch_id()
             sqlDB.update_bifrost_database(df1, df2, batch_id, data_hash=current_hash)
 
+        if single_run:
+            logger.info("Single run completed.")
+            break
+
         logger.info("Sleeping for 1 hour...")
         time.sleep(3600)
 
 if __name__ == "__main__":
-    main()
+    run_pipeline()

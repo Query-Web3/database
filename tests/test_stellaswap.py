@@ -16,9 +16,9 @@ project_root = os.path.dirname(current_dir)
 cao_dir = os.path.join(project_root, 'CAO')
 sys.path.insert(0, cao_dir)
 
-os.environ['DB_USERNAME'] = 'test_user'
-os.environ['DB_PASSWORD'] = 'test_pass'
-os.environ['DB_NAME'] = 'test_db'
+os.environ.setdefault('DB_USERNAME', 'test_user')
+os.environ.setdefault('DB_PASSWORD', 'test_pass')
+os.environ.setdefault('DB_NAME', 'test_db')
 
 import stellaswap_store_raw_data
 

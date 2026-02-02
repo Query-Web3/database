@@ -5,18 +5,29 @@ from logging_config import logger
 import pandas as pd
 
 class SQL_DB_Hydration_Price:
-    def __init__(self, userName, passWord, host, dataBase, db_port=3306, initializeTable=False):
+    def __init__(self, userName, passWord, host, dataBase, db_port=3306, initializeTable=False, table_names=None):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase
         self.port = db_port
         self.host = host
+        
+        # Default table names
+        self.tables = {
+            "Hydration_price": "Hydration_price",
+            "Hydration_price_batches": "Hydration_price_batches"
+        }
+        
+        # Override if custom names provided
+        if table_names:
+            self.tables.update(table_names)
+
         if initializeTable:
             self.initialize_tables()
 
     def initialize_tables(self):
-        sql_command = """
-        CREATE TABLE IF NOT EXISTS Hydration_price (
+        sql_command = f"""
+        CREATE TABLE IF NOT EXISTS {self.tables['Hydration_price']} (
             id INT AUTO_INCREMENT PRIMARY KEY,
             batch_id INT NOT NULL,
             asset_id VARCHAR(50),
@@ -27,27 +38,26 @@ class SQL_DB_Hydration_Price:
         """
         self.executeSQL(sql_command)
 
-        sql_command_batch = """
-        CREATE TABLE IF NOT EXISTS Hydration_price_batches (
+        sql_command_batch = f"""
+        CREATE TABLE IF NOT EXISTS {self.tables['Hydration_price_batches']} (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            batch_id INT NOT NULL,
+            batch_id BIGINT NOT NULL,
             data_hash VARCHAR(64),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
         self.executeSQL(sql_command_batch)
         
-        self.executeSQL(sql_command_batch)
-        
         # Ensure hash column exists (idempotent check)
+        table_name = self.tables['Hydration_price_batches']
         check_col_sql = """
         SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'Hydration_price_batches' AND COLUMN_NAME = 'data_hash'
+        WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'data_hash'
         """
-        res = self.executeSQL(check_col_sql, (self.dataBase,))
+        res = self.executeSQL(check_col_sql, (self.dataBase, table_name))
         if res and res[0][0] == 0:
-            self.executeSQL("ALTER TABLE Hydration_price_batches ADD COLUMN data_hash VARCHAR(64);")
-            logger.info("Added 'data_hash' column to Hydration_price_batches")
+            self.executeSQL(f"ALTER TABLE {table_name} ADD COLUMN data_hash VARCHAR(64);")
+            logger.info(f"Added 'data_hash' column to {table_name}")
 
     def errorMessage(self, message):
         logger.error(f"SQL Error: {message}")
@@ -88,7 +98,8 @@ class SQL_DB_Hydration_Price:
 
     def get_last_price_hash(self):
         """Fetches the data_hash of the most recent price batch."""
-        query = "SELECT data_hash FROM Hydration_price_batches ORDER BY id DESC LIMIT 1"
+        table_name = self.tables['Hydration_price_batches']
+        query = f"SELECT data_hash FROM {table_name} ORDER BY id DESC LIMIT 1"
         result = self.executeSQL(query)
         if result and result[0][0]:
             return result[0][0]
@@ -100,7 +111,8 @@ class SQL_DB_Hydration_Price:
             return
         
         df = pd.DataFrame(processed_data)
-        table_name = "Hydration_price"
+        table_name = self.tables['Hydration_price']
+        table_batches = self.tables['Hydration_price_batches']
         
         for _, row in df.iterrows():
             values_list = [
@@ -121,7 +133,7 @@ class SQL_DB_Hydration_Price:
         # Track batch
         if data_hash:
             self.executeSQL(
-                "INSERT INTO Hydration_price_batches (batch_id, data_hash) VALUES (%s, %s)",
+                f"INSERT INTO {table_batches} (batch_id, data_hash) VALUES (%s, %s)",
                 (batch_id, data_hash)
             )
 

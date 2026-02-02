@@ -9,9 +9,9 @@ import json
 # --- Setup Environment for Imports ---
 # Many scripts in CAO/ check for environment variables at the top level.
 # We set dummy values here to allow imports to succeed without a real .env file.
-os.environ['DB_USERNAME'] = 'test_user'
-os.environ['DB_PASSWORD'] = 'test_pass'
-os.environ['DB_NAME'] = 'test_db'
+os.environ.setdefault('DB_USERNAME', 'test_user')
+os.environ.setdefault('DB_PASSWORD', 'test_pass')
+os.environ.setdefault('DB_NAME', 'test_db')
 os.environ['DB_PORT'] = '3306'
 os.environ['API_KEY'] = 'test_api_key'
 

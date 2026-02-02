@@ -32,21 +32,30 @@ class SQL_DB:
         You need to either set up db_config or userName and passWord
         '''
         if db_config is not None:
-            ## Load configuration
-            con_file = open(db_config)
-            config = json.load(con_file)
-            con_file.close()
-            try:
-                self.userName = config['user']
-                self.passWord = config['pass']
-                if "database" not in config:
-                    self.dataBase = "BOTDatabase"
-                else:
-                    self.dataBase = config['database']
-
-            except:
-                self.errorMessage("Please set up user and pass in the configuration file "+db_config+", otherwise, we cannot connect to the DB")
+            if isinstance(db_config, str):
+                ## Load configuration from file
+                try:
+                    con_file = open(db_config)
+                    config = json.load(con_file)
+                    con_file.close()
+                except Exception as e:
+                    self.errorMessage(f"Error loading config file {db_config}: {e}")
+                    return
+            elif isinstance(db_config, dict):
+                config = db_config
+            else:
+                self.errorMessage("db_config must be a file path (str) or a dictionary")
                 return
+
+            try:
+                self.userName = config.get('user') or config.get('username') or userName
+                self.passWord = config.get('pass') or config.get('password') or passWord
+                self.dataBase = config.get('database') or dataBase or "BOTDatabase"
+                self.host = config.get('host') or host
+                self.port = config.get('port') or port
+            except:
+                 self.errorMessage("Invalid config structure.")
+                 return
         else:
             if userName is None or passWord is None:
                 self.errorMessage("If you don't provide the configuration file db_config, you must set up userName and passWord!")
@@ -58,15 +67,27 @@ class SQL_DB:
                 self.host = host
                 self.port = port
 
+        # Define default table mapping
+        self.tables = {
+            "Bifrost_site_table": "Bifrost_site_table",
+            "Bifrost_staking_table": "Bifrost_staking_table",
+            "Bifrost_batchID_table": "Bifrost_batchID_table"
+        }
+        
+        # Override with custom table names if provided
+        if db_config is not None and isinstance(db_config, dict) and "table_names" in db_config:
+            self.tables.update(db_config["table_names"])
+        
+        # Also support passing table_names directly if not using db_config dict
+        if isinstance(db_config, dict) and "table_names" in db_config:
+             pass
+             
         if initializeTable == True:
-            #print("Warning, will drop the tables now")  we don't want to drop the table
-            #self._dropAllTables()     # we will drop the table first and then do the rest, be careful here
-            # Create a invite and inviter table
-            # sql_command = "CREATE TABLE IF NOT EXISTS inviteTable(invitation_id VARCHAR(50), inviter_user_id VARCHAR(50) NOT NULL, invited_user_id VARCHAR(50) NOT NULL, guild_id VARCHAR(50) NOT NULL, date_added DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, primary key(inviter_user_id, invited_user_id,guild_id));"
-            # self.executeSQL(sql_command)
+             self.initialize_tables()
 
+    def initialize_tables(self):
             # create Bifrost site table
-            sql_command = """CREATE TABLE IF NOT EXISTS Bifrost_site_table (
+            sql_command = f"""CREATE TABLE IF NOT EXISTS {self.tables['Bifrost_site_table']} (
             auto_id INT AUTO_INCREMENT PRIMARY KEY,
             batch_id INT NOT NULL,
             Asset VARCHAR(255),
@@ -83,6 +104,7 @@ class SQL_DB:
             bifrost_staking_7day_apy DECIMAL(20,6),
             created DATETIME,
             daily_reward DECIMAL(20,6),
+            liq DECIMAL(20,6),
             exited_node INT,
             exited_not_transferred_node INT,
             exiting_online_node INT,
@@ -122,7 +144,7 @@ class SQL_DB:
             self.executeSQL(sql_command)
 
             # create Bifrost staking table 
-            sql_command = """CREATE TABLE IF NOT EXISTS Bifrost_staking_table (
+            sql_command = f"""CREATE TABLE IF NOT EXISTS {self.tables['Bifrost_staking_table']} (
             id INT AUTO_INCREMENT PRIMARY KEY,
             batch_id INT NOT NULL,
             contractAddress VARCHAR(255),
@@ -144,7 +166,7 @@ class SQL_DB:
 
 
             # create Bifrost batch ID table 
-            sql_command = """CREATE TABLE IF NOT EXISTS Bifrost_batchID_table (
+            sql_command = f"""CREATE TABLE IF NOT EXISTS {self.tables['Bifrost_batchID_table']} (
             id INT AUTO_INCREMENT PRIMARY KEY,
             batch_id INT NOT NULL,
             chain VARCHAR(25),
@@ -157,14 +179,16 @@ class SQL_DB:
             self.executeSQL(sql_command)
             
             # Ensure hash column exists (idempotent check)
+            # Use raw string for table name in WHERE clause safely
+            table_name = self.tables['Bifrost_batchID_table']
             check_col_sql = """
             SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'Bifrost_batchID_table' AND COLUMN_NAME = 'data_hash'
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'data_hash'
             """
-            res = self.executeSQL(check_col_sql, (self.dataBase,))
+            res = self.executeSQL(check_col_sql, (self.dataBase, table_name))
             if res and res[0][0] == 0:
-                self.executeSQL("ALTER TABLE Bifrost_batchID_table ADD COLUMN data_hash VARCHAR(64);")
-                logger.info("Added 'data_hash' column to Bifrost_batchID_table")
+                self.executeSQL(f"ALTER TABLE {table_name} ADD COLUMN data_hash VARCHAR(64);")
+                logger.info(f"Added 'data_hash' column to {table_name}")
 
             # create Bifrost staking table
             self.executeSQL(sql_command)
@@ -220,9 +244,9 @@ class SQL_DB:
         - data_hash: SHA256 hash of the data content for deduplication.
         """
         # Define the table names
-        table1 = "Bifrost_site_table"
-        table2 = "Bifrost_staking_table"
-        table3 = "Bifrost_batchID_table"
+        table1 = self.tables["Bifrost_site_table"]
+        table2 = self.tables["Bifrost_staking_table"]
+        table3 = self.tables["Bifrost_batchID_table"]
 
         # ---------- helper to clean + convert a single value ----------
         def clean_value(val):
@@ -281,7 +305,8 @@ class SQL_DB:
 
     def get_last_bifrost_hash(self):
         """Fetches the data_hash of the most recent Bifrost batch."""
-        query = "SELECT data_hash FROM Bifrost_batchID_table ORDER BY id DESC LIMIT 1"
+        table_name = self.tables["Bifrost_batchID_table"]
+        query = f"SELECT data_hash FROM {table_name} ORDER BY id DESC LIMIT 1"
         result = self.executeSQL(query)
         if result and result[0][0]:
             return result[0][0]

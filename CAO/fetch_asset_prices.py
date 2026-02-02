@@ -8,24 +8,16 @@ from SQL_DB_hydration_price import SQL_DB_Hydration_Price
 from logging_config import logger
 from utils import retry, generate_batch_id, DataValidator
 
-# Load environment variables
-load_dotenv()
-db_user = os.getenv("DB_USERNAME")
-db_password = os.getenv("DB_PASSWORD")
-db_name = os.getenv("DB_NAME")
-db_port = os.getenv("DB_PORT",3306)
-db_host = os.getenv("DB_HOST", "127.0.0.1")
+# Load env vars handled inside run_pipeline or globally if script run directly
+# We can leave the global load for backward compatibility if imported, but for now let's wrap it.
 
-# Validate environment variables
-required_env_vars = {"DB_USERNAME": db_user, "DB_PASSWORD": db_password, "DB_NAME": db_name}
-for var_name, var_value in required_env_vars.items():
-    if not var_value:
-        raise ValueError(f"{var_name} not found in .env file.")
 
-# Load assets from allAssets.csv and filter for ID < 30
+# Load assets from allAssets.csv (relative to this script)
 def load_assets():
     try:
-        df = pd.read_csv("allAssets.csv")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.join(script_dir, "allAssets.csv")
+        df = pd.read_csv(csv_path)
         return df[df['ID'] < 30][['ID', 'Symbol']].to_dict('records')
     except FileNotFoundError:
         logger.error("allAssets.csv not found.")
@@ -37,14 +29,16 @@ def load_assets():
 # Fetch batch prices for assets 0 to 30
 @retry(max_retries=3, delay=5)
 def fetch_batch_prices():
-    script_path = "hy/script/getBatchPrice2.ts"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(script_dir, "hy/script/getBatchPrice2.ts")
     try:
         result = subprocess.run(
             ["npx", "tsx", script_path],
             capture_output=True,
             text=True,
             check=True,
-            timeout=120  # Add 2 minute timeout
+            timeout=120,  # Add 2 minute timeout
+            cwd=script_dir # Ensure npx finds local modules
         )
         # check before we process the output 
         stdout = (result.stdout or "").strip()
@@ -94,14 +88,40 @@ def process_prices(assets, price_data):
     return processed_data
 
 # Main execution with 30-minute interval
-def main():
+# Main execution with 30-minute interval
+def run_pipeline(db_config=None, single_run=False):
+    # Load environment variables
+    load_dotenv()
+    
+    if db_config:
+        db_user = db_config.get('user')
+        db_password = db_config.get('password')
+        db_name = db_config.get('database')
+        db_port = db_config.get('port', 3306)
+        db_host = db_config.get('host', '127.0.0.1')
+    else:
+        db_user = os.getenv("DB_USERNAME")
+        db_password = os.getenv("DB_PASSWORD")
+        db_name = os.getenv("DB_NAME")
+        db_port = int(os.getenv("DB_PORT",3306))
+        db_host = os.getenv("DB_HOST", "127.0.0.1")
+
+        # Validate environment variables only if not injecting config
+        required_env_vars = {"DB_USERNAME": db_user, "DB_PASSWORD": db_password, "DB_NAME": db_name}
+        for var_name, var_value in required_env_vars.items():
+            if not var_value:
+                # If running simply as python script, this might raise. 
+                # If imported, we might want to suppress or handle differently.
+                pass 
+
     sql_db = SQL_DB_Hydration_Price(
         userName=db_user,
         passWord=db_password,
         dataBase=db_name,
         initializeTable=True,
         db_port=db_port,
-        host=db_host
+        host=db_host,
+        table_names=db_config.get('table_names') if (db_config and isinstance(db_config, dict)) else None
     )
     
     try:
@@ -111,9 +131,7 @@ def main():
             assets = load_assets()
             if not assets:
                 logger.warning("No assets to process. Retrying in 30 minutes...")
-                time.sleep(1800)  # 30 minutes
-                continue
-            
+                if single_run: return
                 time.sleep(1800)  # 30 minutes
                 continue
             
@@ -121,6 +139,7 @@ def main():
             price_data = fetch_batch_prices()
             if not price_data:
                 logger.error("Failed to fetch batch prices. Retrying in 30 minutes...")
+                if single_run: return
                 time.sleep(1800)
                 continue
             
@@ -129,10 +148,12 @@ def main():
             # --- Validation ---
             if not DataValidator.validate_struct(processed_data, {'asset_id', 'symbol', 'price_usdt'}):
                 logger.error("Data validation failed (structure). Skipping batch.")
+                if single_run: return
                 time.sleep(1800)
                 continue
             if not DataValidator.validate_positive_floats(processed_data, {'price_usdt'}):
                 logger.error("Data validation failed (negative prices). Skipping batch.")
+                if single_run: return
                 time.sleep(1800)
                 continue
 
@@ -146,6 +167,10 @@ def main():
                 batch_id = generate_batch_id()
                 sql_db.update_hydration_prices(processed_data, batch_id, data_hash=current_hash)
             
+            if single_run:
+                logger.info("Single run completed.")
+                break
+
             logger.info("Sleeping for 10 minutes...")
             time.sleep(600)  # 10 minutes = 600 seconds
     
@@ -153,4 +178,4 @@ def main():
         logger.exception(f"Error occurred in fetch_asset_prices main loop: {e}")
 
 if __name__ == "__main__":
-    main()
+    run_pipeline()
