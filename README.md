@@ -71,32 +71,15 @@ https://github.com/galacticcouncil/sdk/tree/master/packages/sdk
 Install and build the SDK:
 
 ```
-npm install @galacticcouncil/sdk
-npm run build
+cd CAO/hy 
+npm install
+sudo npm install -g tsx
 ```
 
 ---
 
-## 5. RPC Configuration
 
-Hydration RPC endpoints may change over time.  
-If you encounter missing data or connection issues, update the RPC endpoint inside:
-
-```
-sdk/packages/sdk/test/script/examples/getTop35Apr3.ts
-```
-
-Recommended RPC endpoint:
-
-```
-const RPC = "wss://rpc.helikon.io/hydradx";
-```
-
-Change this value if needed based on network availability.
-
----
-
-## 6. Running the Data Pipeline
+## 5. Running the Data Pipeline
 
 Once dependencies and environment variables are configured, run:
 

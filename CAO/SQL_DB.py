@@ -26,7 +26,7 @@ from logging_config import logger
 
 
 class SQL_DB:
-    def __init__(self, db_config = None, userName = None, passWord = None, port = 3306, host="127.0.0.1", dataBase = None, initializeTable = False):
+    def __init__(self, db_config = None, userName = None, passWord = None, port = None, host = None, dataBase = None, initializeTable = False):
         '''
         Upon initialization, the DB_init class will connect to database
         You need to either set up db_config or userName and passWord
