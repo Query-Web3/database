@@ -11,7 +11,8 @@ import decimal
 import math
 import os
 from dotenv import load_dotenv
-
+from dotenv import load_dotenv
+from utils import retry, DataValidator
 
 class SQL_DB_MergeTables:
     """
@@ -42,10 +43,24 @@ class SQL_DB_MergeTables:
         CREATE TABLE IF NOT EXISTS multipleFACT (
             id INT AUTO_INCREMENT PRIMARY KEY,
             payload JSON NOT NULL,
+            data_hash VARCHAR(64),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """
         self.executeSQL(create_sql)
+        
+        self.executeSQL(create_sql)
+        
+        # Ensure hash column exists (idempotent check)
+        check_col_sql = """
+        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'multipleFACT' AND COLUMN_NAME = 'data_hash'
+        """
+        res = self.executeSQL(check_col_sql, (self.dataBase,))
+        if res and res[0][0] == 0:
+            self.executeSQL("ALTER TABLE multipleFACT ADD COLUMN data_hash VARCHAR(64);")
+            logger.info("Added 'data_hash' column to multipleFACT")
+
         self._maybe_migrate_legacy_schema()
 
     def _maybe_migrate_legacy_schema(self):
@@ -110,6 +125,7 @@ class SQL_DB_MergeTables:
     def errorMessage(self, message):
         logger.error(f"SQL Error: {message}")
 
+    @retry(max_retries=3, delay=2)
     def _connect(self):
         return mysql.connector.connect(
             user=self.userName,
@@ -119,6 +135,7 @@ class SQL_DB_MergeTables:
             port=self.port
         )
 
+    @retry(max_retries=3, delay=2)
     def executeSQL(self, query, params=None):
         try:
             cnx = self._connect()
@@ -147,6 +164,7 @@ class SQL_DB_MergeTables:
             logger.exception(err)
             raise
 
+    @retry(max_retries=3, delay=2)
     def fetch_df(self, query, params=None) -> pd.DataFrame:
         try:
             cnx = self._connect()
@@ -165,6 +183,7 @@ class SQL_DB_MergeTables:
             logger.exception(err)
             raise
 
+    @retry(max_retries=3, delay=2)
     def fetch_one(self, query, params=None):
         cnx = self._connect()
         cur = cnx.cursor()
@@ -355,12 +374,19 @@ class SQL_DB_MergeTables:
     """
 
     # ---------- Insert (append-only) ----------
-    def insert_combined_payload(self, payload_obj: dict):
+    def insert_combined_payload(self, payload_obj: dict, data_hash: str):
         payload_str = json.dumps(payload_obj, default=self._json_default, ensure_ascii=False, allow_nan=False)
         self.executeSQL(
-            "INSERT INTO multipleFACT (payload) VALUES (%s);",
-            (payload_str,)
+            "INSERT INTO multipleFACT (payload, data_hash) VALUES (%s, %s);",
+            (payload_str, data_hash)
         )
+
+    def get_last_merge_hash(self):
+        query = "SELECT data_hash FROM multipleFACT ORDER BY id DESC LIMIT 1"
+        res = self.executeSQL(query)
+        if res and res[0][0]:
+            return res[0][0]
+        return None
 
     # ---------- High-level API ----------
     def run_merge(self):
@@ -439,7 +465,16 @@ class SQL_DB_MergeTables:
         }
 
         payload_obj = self._deep_clean(payload_obj)
-        self.insert_combined_payload(payload_obj)
+        
+        # Deduplication
+        current_hash = DataValidator.compute_hash(payload_obj)
+        last_hash = self.get_last_merge_hash()
+        
+        if current_hash and current_hash == last_hash:
+            logger.info("Duplicate merged data detected. Skipping insertion.")
+            return
+
+        self.insert_combined_payload(payload_obj, current_hash)
         logger.info("Inserted new combined snapshot into multipleFACT (append-only).")
 
 

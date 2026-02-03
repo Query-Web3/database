@@ -60,15 +60,13 @@ class TestFetchAssetPrices(unittest.TestCase):
     @patch('fetch_asset_prices.SQL_DB_Hydration_Price')
     @patch('fetch_asset_prices.load_assets')
     @patch('fetch_asset_prices.fetch_batch_prices')
-    @patch('fetch_asset_prices.time.sleep', side_effect=KeyboardInterrupt)
-    def test_main_execution(self, mock_sleep, mock_fetch, mock_load, mock_sql):
+    def test_main_execution(self, mock_fetch, mock_load, mock_sql):
         mock_load.return_value = [{'ID': 1, 'Symbol': 'DOT'}]
         mock_fetch.return_value = {'1': 5.5}
         
-        try:
-            fetch_asset_prices.main()
-        except KeyboardInterrupt:
-            pass
+        fetch_asset_prices.run_pipeline(single_run=True)
+            
+        self.assertTrue(mock_sql.called)
             
         self.assertTrue(mock_sql.called)
 

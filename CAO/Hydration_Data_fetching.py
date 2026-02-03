@@ -44,7 +44,7 @@ def fetch_farm_apr():
     script_path = "hy/script/getTop35Apr3.ts"
     output_file = "./farm_apr.json"
     try:
-        subprocess.run(["tsx", script_path, output_file], capture_output=True, text=True, check=True)
+        subprocess.run(["npx", "tsx", script_path, output_file], capture_output=True, text=True, check=True)
         with open(output_file, 'r') as f:
             return json.load(f)
     except Exception as e:

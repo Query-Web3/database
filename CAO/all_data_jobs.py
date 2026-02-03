@@ -11,104 +11,148 @@ from db_migration.migration import Migration
 from SQL_DB_stella import SQL_DB_Stella
 from SQL_DB import SQL_DB
 from SQL_DB_hydration import SQL_DB_Hydration
+from SQL_DB_hydration import SQL_DB_Hydration
 from SQL_DB_hydration_price import SQL_DB_Hydration_Price
+from utils import HealthMonitor
+
+import signal
 
 # Base directory where all the scripts live
 BASE_DIR = Path(__file__).resolve().parent
 
-# Script paths
+# Default script paths
 BIFROST_SCRIPT = BASE_DIR / "Bifrost_Data_fetching.py"
 HYDRATION_SCRIPT = BASE_DIR / "Hydration_Data_fetching.py"
 ASSET_PRICES_SCRIPT = BASE_DIR / "fetch_asset_prices.py"
 MERGE_SCRIPT = BASE_DIR / "combine_tables.py"
 
+class JobOrchestrator:
+    def __init__(self, scripts=None, merge_script=None):
+        self.scripts = scripts if scripts is not None else [BIFROST_SCRIPT, HYDRATION_SCRIPT, ASSET_PRICES_SCRIPT]
+        self.merge_script = merge_script or MERGE_SCRIPT
+        self.processes = []
+        self.running = False
+        self._setup_signals()
 
-def start_long_running_scripts():
-    """
-    Start the three fetch scripts that run their own internal loops.
-    Returns a list of Popen processes.
-    """
-    processes = []
+    def _setup_signals(self):
+        signal.signal(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGTERM, self._handle_exit)
 
-    commands = [
-        [sys.executable, str(BIFROST_SCRIPT)],
-        [sys.executable, str(HYDRATION_SCRIPT)],
-        [sys.executable, str(ASSET_PRICES_SCRIPT)],
-    ]
+    def _handle_exit(self, sig, frame):
+        logger.info(f"Received signal {sig}, stopping orchestrator...")
+        self.running = False
 
-    for cmd in commands:
-        logger.info(f"Starting: {' '.join(cmd)}")
-        p = subprocess.Popen(cmd, cwd=str(BASE_DIR))
-        processes.append(p)
+    def start_long_running_scripts(self):
+        """
+        Start the fetch scripts that run their own internal loops.
+        """
+        for script in self.scripts:
+            cmd = [sys.executable, str(script)]
+            logger.info(f"Starting: {' '.join(cmd)}")
+            p = subprocess.Popen(cmd, cwd=str(BASE_DIR))
+            self.processes.append(p)
+        return self.processes
 
-    return processes
+    def run_merge_script(self):
+        """
+        Run merge script once (blocking).
+        """
+        logger.info(f"Running merge script: {self.merge_script}")
+        try:
+            subprocess.run(
+                [sys.executable, str(self.merge_script)],
+                cwd=str(BASE_DIR),
+                check=True
+            )
+            logger.info("Merge completed successfully.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Merge failed with exit code {e.returncode}")
+        except Exception as e:
+            logger.error(f"Merge error: {e}")
 
-
-def run_merge_script():
-    """
-    Run merge_multiple_tables.py once (blocking).
-    """
-    logger.info("Running merge_multiple_tables.py ...")
-    try:
-        subprocess.run(
-            [sys.executable, str(MERGE_SCRIPT)],
-            cwd=str(BASE_DIR),
-            check=True
-        )
-        logger.info("Merge completed successfully.")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Merge failed with exit code {e.returncode}")
-
-
-def main():
-    initialize_tables()
-    # Start the three long-running fetch scripts
-    processes = start_long_running_scripts()
-
-    # Run merge_multiple_tables.py every hour
-    MERGE_INTERVAL_SEC = 60 * 60  # 1 hour
-    next_merge_time = time.time()  # run once immediately on start
-
-    logger.info("Scheduler started. Press Ctrl+C to stop.")
-
-    try:
-        while True:
-            now = time.time()
-
-            # Optional: check if any fetch process died
-            for p in processes:
-                if p.poll() is not None:
-                    logger.warning(f"Process {p.args} exited with code {p.returncode}")
-                    # If you want auto-restart, you could restart it here.
-
-            time.sleep(10)  # avoid busy loop
-
-            # Run merge script when it's time
-            if now >= next_merge_time:
-                run_merge_script()
-                next_merge_time = now + MERGE_INTERVAL_SEC
-
-    except KeyboardInterrupt:
-        logger.info("Received Ctrl+C, stopping all processes...")
-
-    finally:
-        # Try to gracefully stop child processes
-        for p in processes:
+    def stop_all(self):
+        """
+        Gracefully stop all child processes.
+        """
+        logger.info("Stopping all child processes...")
+        # 1. Terminate
+        for p in self.processes:
             if p.poll() is None:
                 try:
                     p.terminate()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Error terminating process {p.pid}: {e}")
 
+        # 2. Wait and kill if necessary
         time.sleep(2)
-        for p in processes:
+        for p in self.processes:
             if p.poll() is None:
                 try:
+                    logger.warning(f"Process {p.pid} did not stop gracefully, killing it...")
                     p.kill()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Error killing process {p.pid}: {e}")
+        
+        self.processes = []
+        logger.info("Orchestrator cleanup complete.")
 
-        logger.info("All processes stopped.")
+    def run(self, merge_interval_sec=3600, max_iterations=None):
+        """
+        Main orchestration loop.
+        Args:
+            merge_interval_sec (int): Frequency of merge script execution.
+            max_iterations (int/None): If set, limits the number of 10s sleep cycles.
+        """
+        self.running = True
+        initialize_tables()
+        self.start_long_running_scripts()
+
+        next_merge_time = time.time()  # run once immediately on start
+        iterations = 0
+
+        logger.info(f"Scheduler started (Merge Interval: {merge_interval_sec}s).")
+
+        try:
+            while self.running:
+                now = time.time()
+                
+                # 1. Health Checks
+                db_config = {
+                    'user': os.getenv("DB_USERNAME"),
+                    'password': os.getenv("DB_PASSWORD"),
+                    'database': os.getenv("DB_NAME"),
+                    'port': int(os.getenv("DB_PORT", 3306)),
+                    'host': os.getenv("DB_HOST", "127.0.0.1")
+                }
+                if not HealthMonitor.check_db_connection(db_config):
+                    logger.error("Health Check Failed: Database unreachable!")
+
+                # 2. Process Monitoring
+                for p in self.processes:
+                    if p.poll() is not None:
+                        logger.warning(f"Process {p.args} exited with code {p.returncode}")
+                        # In a production setting, we might want to restart here.
+                        # For now, we just log it.
+
+                # 3. Handle Merge
+                if now >= next_merge_time:
+                    self.run_merge_script()
+                    next_merge_time = now + merge_interval_sec
+
+                # 4. Sleep and check exit
+                time.sleep(10)
+                
+                iterations += 1
+                if max_iterations and iterations >= max_iterations:
+                    logger.info("Max iterations reached, stopping...")
+                    break
+        finally:
+            self.stop_all()
+
+
+def main():
+    orchestrator = JobOrchestrator()
+    orchestrator.run()
 
 
 def initialize_tables():
@@ -117,7 +161,7 @@ def initialize_tables():
     db_password = os.getenv("DB_PASSWORD", "")
     db_host = os.getenv("DB_HOST", "127.0.0.1")
     db_name = os.getenv("DB_NAME", "quantDATA")
-    db_port = os.getenv("DB_PORT",3306)
+    db_port = int(os.getenv("DB_PORT", 3306))
 
     SQL_DB_Hydration_Price(
         userName=db_user,

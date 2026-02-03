@@ -5,6 +5,12 @@ import importlib.util
 from dotenv import load_dotenv
 import mysql.connector
 from mysql.connector import errorcode
+import sys
+import os
+
+# Add parent directory to path to import utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils import retry
 
 class Migration:
     def __init__(self, user=None, password=None, host=None, database=None, port=None, 
@@ -50,6 +56,7 @@ class Migration:
             migration_dir = os.path.dirname(os.path.abspath(__file__))
         self.migration_dir = migration_dir
         
+    @retry(max_retries=3, delay=1)
     def executeSQL(self, query, params=None):
         """
         执行SQL语句

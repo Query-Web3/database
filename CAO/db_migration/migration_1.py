@@ -25,6 +25,10 @@ def migrate(conn):
         print("Migration 1: Created Bifrost_site_table liq successfully")
         
     except Exception as e:
+        # Check if error is due to duplicate column name
+        if "Duplicate column name" in str(e):
+             print(f"Migration 1 skipped: Column 'liq' already exists.")
+             return
         conn.rollback()
         print(f"Migration 1 failed: {e}")
         raise
