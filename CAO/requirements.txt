@@ -1,10 +1,17 @@
 certifi==2025.10.5
 charset-normalizer==3.4.4
+coverage==7.13.1
 dotenv==0.9.9
 idna==3.11
+iniconfig==2.3.0
 mysql-connector-python==9.5.0
 numpy==2.3.4
+packaging==25.0
 pandas==2.3.3
+pluggy==1.6.0
+Pygments==2.19.2
+pytest==9.0.2
+pytest-cov==7.0.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytz==2025.2

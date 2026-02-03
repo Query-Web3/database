@@ -50,7 +50,7 @@ def _to_decimal(v: Any) -> Optional[Decimal]:
 
 
 class SQL_DB_CombinedTables:
-    def __init__(self, user: str, password: str, db: str, db_port: int = 3306, host: str = "127.0.0.1") -> None:
+    def __init__(self, user: str, password: str, db: str, db_port: int, host: str) -> None:
         self.user = user
         self.password = password
         self.db = db

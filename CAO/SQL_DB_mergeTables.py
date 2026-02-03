@@ -21,7 +21,7 @@ class SQL_DB_MergeTables:
         db.run_merge()
     """
 
-    def __init__(self, userName, passWord, host, dataBase, port=3306, initializeTable=False):
+    def __init__(self, userName, passWord, host, dataBase, port, initializeTable=False):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase

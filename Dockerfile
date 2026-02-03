@@ -21,25 +21,16 @@ COPY CAO /app/CAO
 RUN cd /app/CAO && pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --target=/app/deps -r requirements.txt
 
-RUN cd /app/CAO/hy && npm install
+RUN cd /app/CAO/hy && npm install && npm install -g tsx
 
 # ==================== 第二阶段：最终运行镜像（轻量）====================
 FROM python:3.11-slim
-
-# 安全优化：创建非 root 用户（避免容器内用 root 运行应用）
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 # 设置工作目录
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs
-
-# 更改文件所有权为非 root 用户（增强安全性）
-RUN chown -R appuser:appgroup /app && mkdir /home/appuser && chown -R appuser:appgroup /home/appuser
-
-# 切换到非 root 用户运行
-USER appuser
 
 # 配置 Python 路径（让 Python 能找到依赖包）
 ENV PYTHONPATH=/app:/app/deps
@@ -48,7 +39,6 @@ ENV PATH=$PATH:/app/CAO/hy/node_modules/.bin
 # 从构建阶段复制依赖（仅复制必要的依赖文件，减小镜像体积）
 COPY --from=builder /app/deps ./deps
 COPY --from=builder /app/CAO ./CAO
-COPY hacks/.env ./CAO
 
 # 启动命令
 CMD ["python","/app/CAO/all_data_jobs.py"]

@@ -108,7 +108,7 @@ def process_data(assets, farm_apr_data):
     return processed_data
 
 def main():
-    sql_db = SQL_DB_Hydration(userName=db_user, passWord=db_password, host=db_host, dataBase=db_name, initializeTable=True)
+    sql_db = SQL_DB_Hydration(userName=db_user, passWord=db_password, host=db_host, db_port=db_port, dataBase=db_name, initializeTable=True)
     try:
         while True:
             logger.info("Starting Hydration data fetch batch...")

@@ -5,7 +5,7 @@ from logging_config import logger
 import pandas as pd
 
 class SQL_DB_Hydration_Price:
-    def __init__(self, userName, passWord, host, dataBase, db_port=3306, initializeTable=False, table_names=None):
+    def __init__(self, userName, passWord, host, dataBase, db_port, initializeTable=False, table_names=None):
         self.userName = userName
         self.passWord = passWord
         self.dataBase = dataBase
