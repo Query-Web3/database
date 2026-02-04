@@ -171,8 +171,8 @@ def run_pipeline(db_config=None, single_run=False):
                 logger.info("Single run completed.")
                 break
 
-            logger.info("Sleeping for 10 minutes...")
-            time.sleep(600)  # 10 minutes = 600 seconds
+            logger.info("Sleeping for 1 hour...")
+            time.sleep(3600)  # 1 hour sleep
     
     except Exception as e:
         logger.exception(f"Error occurred in fetch_asset_prices main loop: {e}")
