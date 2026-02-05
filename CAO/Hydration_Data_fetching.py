@@ -118,7 +118,7 @@ def main():
             if assets and farm_apr_data:
                 processed_data = process_data(assets, farm_apr_data)
                 sql_db.update_hydration_database(processed_data, batch_id)
-            time.sleep(43200)
+            time.sleep(3600)     # sleep 1 hour
     except KeyboardInterrupt:
         pass
 
