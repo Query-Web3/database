@@ -6,7 +6,7 @@ import time
 from dotenv import load_dotenv
 from SQL_DB_hydration_price import SQL_DB_Hydration_Price
 from logging_config import logger
-from utils import retry, generate_batch_id, DataValidator
+from utils import retry, generate_batch_id, DataValidator, LivelinessProbe
 
 # Load env vars handled inside run_pipeline or globally if script run directly
 # We can leave the global load for backward compatibility if imported, but for now let's wrap it.
@@ -171,6 +171,7 @@ def run_pipeline(db_config=None, single_run=False):
                 logger.info("Single run completed.")
                 break
 
+            LivelinessProbe.record_heartbeat("prices")
             logger.info("Sleeping for 1 hour...")
             time.sleep(3600)  # 1 hour sleep
     

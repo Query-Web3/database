@@ -29,6 +29,39 @@ python -m pytest tests/ --cov=CAO --cov-report=term-missing
 
 The current project documentation and logic achievement is **81% total coverage**.
 
+## System Health Checks
+
+The project includes a robust health monitoring system based on **Heartbeats**. Long-running scripts record their status to a temporary directory, which is then verified by the health check utility.
+
+### Running a Full Report
+To see the status of all services and the database:
+```bash
+python CAO/health_check.py
+```
+
+### Probing Specific Services (Docker Health Check)
+You can probe specific services. This is designed to be used in `docker-compose.yml` health checks:
+```bash
+# Check if the database is reachable
+python CAO/health_check.py --service database
+
+# Check if a specific fetcher is alive
+python CAO/health_check.py --service bifrost
+python CAO/health_check.py --service hydration
+python CAO/health_check.py --service prices
+python CAO/health_check.py --service stellaswap
+python CAO/health_check.py --service orchestrator
+```
+
+### Configuration Flags
+- `--service`: Name of the service to check. Returns exit code 0 if healthy, 1 if failed.
+- `--max-age`: Maximum age of the heartbeat in seconds (default: 7200 / 2 hours).
+
+### How it works:
+1. **Liveliness**: Every managed script calls `LivelinessProbe.record_heartbeat()` at the end of its processing loop.
+2. **Monitoring**: The `health_check.py` script checks if the heartbeat file exists and if the timestamp is recent enough.
+3. **Database**: Always performs a real connection test to verify MySQL availability.
+
 ## Test Structure
 
 The tests are located in the `tests/` directory and are divided into unit and integration/E2E tests:

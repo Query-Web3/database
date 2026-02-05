@@ -9,6 +9,7 @@ import os
 
 from SQL_DB_hydration import SQL_DB_Hydration
 from logging_config import logger
+from utils import LivelinessProbe
 
 # Load environment variables from .env file
 load_dotenv()
@@ -118,6 +119,7 @@ def main():
             if assets and farm_apr_data:
                 processed_data = process_data(assets, farm_apr_data)
                 sql_db.update_hydration_database(processed_data, batch_id)
+            LivelinessProbe.record_heartbeat("hydration")
             time.sleep(3600)     # sleep 1 hour
     except KeyboardInterrupt:
         pass
