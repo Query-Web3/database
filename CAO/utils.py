@@ -1,3 +1,4 @@
+import os
 import hashlib
 import json
 import time
@@ -40,6 +41,53 @@ def retry(max_retries=3, delay=2, backoff=2, exceptions=(Exception,)):
         return wrapper
     return decorator
 
+HEARTBEAT_DIR = os.getenv("HEARTBEAT_DIR", "/tmp/heartbeats")
+
+class LivelinessProbe:
+    """
+    Handles heartbeat registration and verification for long-running scripts.
+    Useful for Docker health checks.
+    """
+    @staticmethod
+    def record_heartbeat(service_name):
+        """
+        Updates the heartbeat timestamp for a given service.
+        """
+        try:
+            os.makedirs(HEARTBEAT_DIR, exist_ok=True)
+            path = os.path.join(HEARTBEAT_DIR, f"{service_name}.heartbeat")
+            with open(path, "w") as f:
+                f.write(str(time.time()))
+        except Exception as e:
+            logger.error(f"Failed to record heartbeat for {service_name}: {e}")
+
+    @staticmethod
+    def check_heartbeat(service_name, max_age_seconds=7200):
+        """
+        Checks if the heartbeat for a service is fresh.
+        Default max_age is 2 hours (most scripts sleep for 1h).
+        """
+        path = os.path.join(HEARTBEAT_DIR, f"{service_name}.heartbeat")
+        if not os.path.exists(path):
+            logger.warning(f"Heartbeat file not found for {service_name}: {path}")
+            return False
+        try:
+            with open(path, "r") as f:
+                content = f.read().strip()
+                if not content:
+                    return False
+                last_heartbeat = float(content)
+            
+            age = time.time() - last_heartbeat
+            if age < max_age_seconds:
+                return True
+            else:
+                logger.warning(f"Heartbeat for {service_name} is stale: {age:.2f}s old (max: {max_age_seconds}s)")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to check heartbeat for {service_name}: {e}")
+            return False
+
 class HealthMonitor:
     @staticmethod
     def check_db_connection(db_config):
@@ -72,6 +120,13 @@ class HealthMonitor:
         if process.poll() is None:
             return True
         return False
+
+    @staticmethod
+    def check_script_health(service_name, max_age_seconds=7200):
+        """
+        Combined check for a script's health via heartbeat.
+        """
+        return LivelinessProbe.check_heartbeat(service_name, max_age_seconds)
 
     @staticmethod
     def check_disk_space(path="/", threshold_percent=90):

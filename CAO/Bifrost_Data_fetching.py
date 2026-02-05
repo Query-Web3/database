@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from SQL_DB import SQL_DB
 import numpy as np
 from logging_config import logger
-from utils import generate_batch_id, DataValidator
+from utils import generate_batch_id, DataValidator, LivelinessProbe
 
 def fetch_data():
     # Fetching data from the API
@@ -96,8 +96,11 @@ def sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
     # 3) OPTIONAL: try to coerce obvious numeric-looking object columns
     for col in df.columns:
         if df[col].dtype == "object":
-            # This will turn "1.23" → 1.23, "NaN" already handled above
-            df[col] = pd.to_numeric(df[col], errors="ignore")
+            # Use try-except instead of deprecated errors='ignore'
+            try:
+                df[col] = pd.to_numeric(df[col])
+            except (ValueError, TypeError):
+                pass
 
     # 4) Turn all NaN into None so MySQL connector sends NULL
     df = df.where(pd.notnull(df), None)
@@ -160,6 +163,7 @@ def run_pipeline(db_config=None, single_run=False):
             logger.info("Single run completed.")
             break
 
+        LivelinessProbe.record_heartbeat("bifrost")
         logger.info("Sleeping for 1 hour...")
         time.sleep(3600)
 

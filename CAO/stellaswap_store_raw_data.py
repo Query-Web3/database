@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from SQL_DB_stella import SQL_DB_Stella
 from logging_config import logger
+from utils import LivelinessProbe
 
 # Load environment variables from .env file
 load_dotenv()
@@ -288,6 +289,7 @@ def main():
                 
                 sql_db.update_pool_database(processed_data, batch_id)
             
+            LivelinessProbe.record_heartbeat("stellaswap")
             logger.info("Sleeping for 1 hour...")
             time.sleep(3600)
     

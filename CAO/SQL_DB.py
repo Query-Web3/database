@@ -109,7 +109,7 @@ class SQL_DB:
             exited_not_transferred_node INT,
             exiting_online_node INT,
             gas_fee_income DECIMAL(20,6),
-            id INT,
+            id VARCHAR(255),
             mev_7day_apy VARCHAR(255),
             mev_apy DECIMAL(20,6),
             mev_income DECIMAL(20,6),
@@ -189,6 +189,17 @@ class SQL_DB:
             if res and res[0][0] == 0:
                 self.executeSQL(f"ALTER TABLE {table_name} ADD COLUMN data_hash VARCHAR(64);")
                 logger.info(f"Added 'data_hash' column to {table_name}")
+
+            # Ensure 'id' column is VARCHAR(255) in site table (migration for existing INT columns)
+            table_site = self.tables['Bifrost_site_table']
+            check_id_type_sql = """
+            SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'id'
+            """
+            res_id = self.executeSQL(check_id_type_sql, (self.dataBase, table_site))
+            if res_id and res_id[0][0].lower() == 'int':
+                self.executeSQL(f"ALTER TABLE {table_site} MODIFY COLUMN id VARCHAR(255);")
+                logger.info(f"Modified 'id' column in {table_site} to VARCHAR(255)")
 
             # create Bifrost staking table
             self.executeSQL(sql_command)

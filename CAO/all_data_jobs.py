@@ -13,7 +13,7 @@ from SQL_DB import SQL_DB
 from SQL_DB_hydration import SQL_DB_Hydration
 from SQL_DB_hydration import SQL_DB_Hydration
 from SQL_DB_hydration_price import SQL_DB_Hydration_Price
-from utils import HealthMonitor
+from utils import HealthMonitor, LivelinessProbe
 
 import signal
 
@@ -24,11 +24,17 @@ BASE_DIR = Path(__file__).resolve().parent
 BIFROST_SCRIPT = BASE_DIR / "Bifrost_Data_fetching.py"
 HYDRATION_SCRIPT = BASE_DIR / "Hydration_Data_fetching.py"
 ASSET_PRICES_SCRIPT = BASE_DIR / "fetch_asset_prices.py"
+STELLASWAP_SCRIPT = BASE_DIR / "stellaswap_store_raw_data.py"
 MERGE_SCRIPT = BASE_DIR / "combine_tables.py"
 
 class JobOrchestrator:
     def __init__(self, scripts=None, merge_script=None):
-        self.scripts = scripts if scripts is not None else [BIFROST_SCRIPT, HYDRATION_SCRIPT, ASSET_PRICES_SCRIPT]
+        self.scripts = scripts if scripts is not None else [
+            BIFROST_SCRIPT, 
+            HYDRATION_SCRIPT, 
+            ASSET_PRICES_SCRIPT,
+            STELLASWAP_SCRIPT
+        ]
         self.merge_script = merge_script or MERGE_SCRIPT
         self.processes = []
         self.running = False
@@ -139,7 +145,10 @@ class JobOrchestrator:
                     self.run_merge_script()
                     next_merge_time = now + merge_interval_sec
 
-                # 4. Sleep and check exit
+                # 4. Heartbeat
+                LivelinessProbe.record_heartbeat("orchestrator")
+
+                # 5. Sleep and check exit
                 time.sleep(10)
                 
                 iterations += 1
