@@ -217,7 +217,7 @@ def process_data(data, pools_apr_data, farming_apr_data):
         pool_data = {
             'pool_id': pool_id,
             'token0_id': pool['token0']['id'],
-            'token0_symbol': pool['token0']['symbol'],
+            'symbol': pool['token0']['symbol'],
             'token0_name': pool['token0']['name'],
             'token0_decimals': int(pool['token0']['decimals']),
             'token1_id': pool['token1']['id'],
@@ -285,7 +285,7 @@ def main():
                 processed_data = process_data(raw_data, pools_apr_data, farming_apr_data)
                 
                 for pool in processed_data:
-                    logger.info(f"Pool {pool['pool_id']}: Token0: {pool['token0_symbol']} - {pool['amount_token0']:.6f}, Token1: {pool['token1_symbol']} - {pool['amount_token1']:.6f}, 24h Vol: {pool['volume_usd_24h']}, APR: {pool['final_apr']}%")
+                    logger.info(f"Pool {pool['pool_id']}: Token0: {pool['symbol']} - {pool['amount_token0']:.6f}, Token1: {pool['token1_symbol']} - {pool['amount_token1']:.6f}, 24h Vol: {pool['volume_usd_24h']}, APR: {pool['final_apr']}%")
                 
                 sql_db.update_pool_database(processed_data, batch_id)
             
