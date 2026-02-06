@@ -22,7 +22,7 @@ class SQL_DB_Stella:
             batch_id INT NOT NULL,
             pool_id VARCHAR(255),
             token0_id VARCHAR(255),
-            token0_symbol VARCHAR(50),
+            symbol VARCHAR(50),
             token0_name VARCHAR(255),
             token0_decimals INT,
             token1_id VARCHAR(255),
@@ -107,7 +107,7 @@ class SQL_DB_Stella:
             
             query = f"""
             INSERT INTO {table_name} (
-                batch_id, pool_id, token0_id, token0_symbol, token0_name, token0_decimals,
+                batch_id, pool_id, token0_id, symbol, token0_name, token0_decimals,
                 token1_id, token1_symbol, token1_name, token1_decimals, liquidity,
                 sqrt_price, tick, volume_usd_current, volume_usd_24h_ago, volume_usd_24h,
                 tx_count, fees_usd_current, fees_usd_24h_ago, fees_usd_24h, amount_token0,
