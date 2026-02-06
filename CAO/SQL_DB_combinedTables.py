@@ -232,7 +232,7 @@ class SQL_DB_CombinedTables:
     def rows_from_pool(self, batch_id: int, price_map: Dict[str, Decimal]) -> List[Dict[str, Any]]:
         rows = self.execute(
             """
-            SELECT batch_id, token0_symbol, token1_symbol, farming_apr, pools_apr, final_apr,
+            SELECT batch_id, symbol, token1_symbol, farming_apr, pools_apr, final_apr,
                    volume_usd_24h, tx_count, created_at
             FROM `pool_data`
             WHERE batch_id = %s
@@ -242,7 +242,7 @@ class SQL_DB_CombinedTables:
         out: List[Dict[str, Any]] = []
         for r in rows:
             sym = {
-                "token0_symbol": r.get("token0_symbol"),
+                "symbol": r.get("symbol"),
                 "token1_symbol": r.get("token1_symbol"),
             }
             rec = dict(
